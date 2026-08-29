@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <UseWPF>true</UseWPF>
+        <UseWindowsForms>true</UseWindowsForms>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AssemblyName>TrayClockApp</AssemblyName>
+        <RootNamespace>TrayClockApp</RootNamespace>
+        <LangVersion>latest</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Version>1.0.0</Version>
+        <DebugType>None</DebugType>
+        <DebugSymbols>false</DebugSymbols>
+        <Company>snownnlee</Company>
+        <Product>TrayClockApp</Product>
+        <Copyright>Copyright © 2026 snownnlee. All rights reserved.</Copyright>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Using Remove="System.Windows.Forms"/>
+        <Using Remove="System.Drawing"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Management.Infrastructure" Version="3.0.0"/>
+    </ItemGroup>
+
+</Project>
