@@ -39,9 +39,9 @@ public static class WindowUtil
             toast.Show();
             toast.UpdateLayout();
 
-            var workArea = SystemParameters.WorkArea;
-            toast.Left = (workArea.Width - toast.ActualWidth) / 2;
-            toast.Top = workArea.Height * 2 / 3;
+            var workArea = MonitorUtil.GetCursorWorkArea();
+            toast.Left = workArea.Left + (workArea.Width - toast.ActualWidth) / 2;
+            toast.Top = workArea.Top + workArea.Height * 2 / 3;
             toast.Activate();
 
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };

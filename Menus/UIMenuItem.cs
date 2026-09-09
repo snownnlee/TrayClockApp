@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using TrayClockApp.Core;
@@ -34,9 +33,7 @@ public class UiMenuItem : MenuItemBase
         var resetItem = new MenuItem { Header = "重置位置" };
         resetItem.Click += (_, _) =>
         {
-            var workArea = SystemParameters.WorkArea;
-            Window!.Left = (workArea.Width - Window.ActualWidth) / 3;
-            Window!.Top = 0;
+            Window!.MoveToCursorScreen();
             EventBus.Publish(EventType.ConfigChanged);
             WindowUtil.ShowToast("位置已重置");
         };
@@ -70,9 +67,7 @@ public class UiMenuItem : MenuItemBase
         var resetItem = new ToolStripMenuItem("重置位置");
         resetItem.Click += (_, _) =>
         {
-            var workArea = SystemParameters.WorkArea;
-            Window!.Left = (workArea.Width - Window.ActualWidth) / 3;
-            Window!.Top = 0;
+            Window!.MoveToCursorScreen();
             EventBus.Publish(EventType.ConfigChanged);
             WindowUtil.ShowToast("位置已重置");
         };

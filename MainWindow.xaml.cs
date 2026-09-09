@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using TrayClockApp.Core;
+using TrayClockApp.Infra;
 using TrayClockApp.Labels;
 using TrayClockApp.Menus;
 
@@ -64,19 +65,31 @@ public partial class MainWindow
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        var workArea = SystemParameters.WorkArea;
-        if (_configX is not null && _configY is not null &&
-            _configX >= 0 && _configX <= Math.Max(0, workArea.Width - ActualWidth) &&
-            _configY >= 0 && _configY <= Math.Max(0, workArea.Height - ActualHeight))
+        if (_configX is { } savedX && _configY is { } savedY && IsFullyInsideSomeWorkArea(savedX, savedY))
         {
-            Left = _configX.Value;
-            Top = _configY.Value;
+            Left = savedX;
+            Top = savedY;
+            return;
         }
-        else
-        {
-            Left = (workArea.Width - ActualWidth) / 3;
-            Top = 0;
-        }
+
+        MoveToCursorScreen();
+    }
+
+    private bool IsFullyInsideSomeWorkArea(double x, double y)
+    {
+        return MonitorUtil.GetAllWorkAreas().Any(area =>
+            x >= area.Left
+            && y >= area.Top
+            && x + ActualWidth <= area.Right
+            && y + ActualHeight <= area.Bottom
+        );
+    }
+
+    public void MoveToCursorScreen()
+    {
+        var area = MonitorUtil.GetCursorWorkArea();
+        Left = area.Left + Math.Max(0, area.Width - ActualWidth) / 3;
+        Top = area.Top;
     }
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -91,11 +104,12 @@ public partial class MainWindow
         if (!_draggable || !IsMouseCaptured) return;
         var delta = e.GetPosition(this) - _dragStart;
         if (delta.X != 0 || delta.Y != 0) _dragged = true;
-        var workArea = SystemParameters.WorkArea;
-        var maxX = Math.Max(0, workArea.Width - ActualWidth);
-        var maxY = Math.Max(0, workArea.Height - ActualHeight);
-        Left = Math.Clamp(Left + delta.X, 0, maxX);
-        Top = Math.Clamp(Top + delta.Y, 0, maxY);
+
+        var area = MonitorUtil.GetCursorWorkArea();
+        var maxX = Math.Max(area.Left, area.Right - ActualWidth);
+        var maxY = Math.Max(area.Top, area.Bottom - ActualHeight);
+        Left = Math.Clamp(Left + delta.X, area.Left, maxX);
+        Top = Math.Clamp(Top + delta.Y, area.Top, maxY);
     }
 
     private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
