@@ -31,6 +31,6 @@ public class ShowHideMenuItem : MenuItemBase
     private void ToggleAndToast()
     {
         WindowUtil.ToggleVisibility(Window!);
-        WindowUtil.ShowToast(Window!.IsVisible ? "已显示" : "已隐藏");
+        WindowUtil.ShowToast(Window!.IsVisible ? "已显示" : "已隐藏", TimeSpan.FromMilliseconds(1500));
     }
 }

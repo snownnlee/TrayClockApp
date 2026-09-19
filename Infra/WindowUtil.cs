@@ -12,8 +12,15 @@ public static class WindowUtil
         MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
-    public static void ShowToast(string message)
+    public static void ShowToast(string message) => ShowToast(message, TimeSpan.FromSeconds(2));
+
+    public static void ShowToast(string message, TimeSpan duration)
+        => ShowToast(message, duration, showCountdown: false);
+
+    public static void ShowToast(string message, TimeSpan duration, bool showCountdown)
     {
+        if (duration <= TimeSpan.Zero) duration = TimeSpan.FromSeconds(2);
+
         Application.Current?.Dispatcher.InvokeAsync(() =>
         {
             var toast = new Window
@@ -44,13 +51,36 @@ public static class WindowUtil
             toast.Top = workArea.Top + workArea.Height * 2 / 3;
             toast.Activate();
 
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            var remaining = duration;
+            if (showCountdown) UpdateText();
+
+            var timer = new DispatcherTimer { Interval = showCountdown ? TimeSpan.FromSeconds(1) : duration };
             timer.Tick += (_, _) =>
             {
+                if (showCountdown)
+                {
+                    remaining -= TimeSpan.FromSeconds(1);
+                    if (remaining > TimeSpan.Zero)
+                    {
+                        UpdateText();
+                        return;
+                    }
+                }
+
                 timer.Stop();
                 toast.Close();
             };
             timer.Start();
+            return;
+
+            void UpdateText()
+            {
+                label.Text = $"{message}（{Math.Ceiling(remaining.TotalSeconds)}s）";
+                toast.Topmost = false;
+                toast.Topmost = true;
+                toast.UpdateLayout();
+                toast.Left = workArea.Left + (workArea.Width - toast.ActualWidth) / 2;
+            }
         });
     }
 
