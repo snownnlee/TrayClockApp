@@ -7,7 +7,7 @@ public static class TrayIconManager
 {
     public static void Create(NotifyIcon icon, List<IMenuItem> menuItems, MainWindow window)
     {
-        icon.Icon = AppIcon.DrawTrayIcon();
+        icon.Icon = AppIcon.LoadTrayIcon();
         icon.Text = "Tray Clock";
         icon.ContextMenuStrip = new ContextMenuStrip();
 

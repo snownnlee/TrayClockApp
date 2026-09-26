@@ -11,12 +11,13 @@
         <RootNamespace>TrayClockApp</RootNamespace>
         <LangVersion>latest</LangVersion>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <Version>1.0.2</Version>
+        <Version>1.0.3</Version>
         <DebugType>None</DebugType>
         <DebugSymbols>false</DebugSymbols>
         <Company>snownnlee</Company>
         <Product>TrayClockApp</Product>
         <Copyright>Copyright © 2026 snownnlee. All rights reserved.</Copyright>
+        <ApplicationIcon>app.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -25,7 +26,15 @@
     </ItemGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="app.ico" LogicalName="TrayClockApp.app.ico"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Microsoft.Management.Infrastructure" Version="3.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="preview\"/>
     </ItemGroup>
 
 </Project>

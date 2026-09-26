@@ -1,90 +1,58 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
+using System.IO;
+using System.Windows.Forms;
 
 namespace TrayClockApp.Infra;
 
 public static class AppIcon
 {
-    public static Icon DrawTrayIcon()
+    private const string EmbeddedResourceName = "TrayClockApp.app.ico";
+
+    private const string IconFileName = "app.ico";
+
+    public static Icon LoadTrayIcon()
     {
-        const int size = 32;
-        const double s = 32.0 / 128.0;
+        var size = SystemInformation.SmallIconSize;
 
-        var bitmap = new Bitmap(size, size);
-        using (var g = Graphics.FromImage(bitmap))
+        var externalPath = Path.Combine(AppContext.BaseDirectory, IconFileName);
+        if (File.Exists(externalPath))
         {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(Color.Transparent);
-
-            const double centerX = 64 * s;
-            const double centerY = 64 * s;
-            const float stroke = (float)(13 * s);
-
-            const double screenWidth = 110 * s;
-            const double screenHeight = 80 * s;
-            const double screenX = centerX - screenWidth / 2;
-            const double screenY = centerY - screenHeight / 2 - 9 * s;
-
-            using (var whitePen = new Pen(Color.White, stroke))
-            {
-                whitePen.LineJoin = LineJoin.Round;
-                whitePen.StartCap = LineCap.Round;
-                whitePen.EndCap = LineCap.Round;
-                g.DrawPath(whitePen, RoundRect((float)screenX, (float)screenY, (float)screenWidth, (float)screenHeight, (float)(12 * s)));
-            }
-
-            const double innerPad = 16 * s;
-            var p1 = new PointF((float)(screenX + innerPad), (float)(screenY + screenHeight - innerPad - 4 * s));
-            var p2 = new PointF((float)(centerX - 16 * s), (float)(screenY + innerPad + 2 * s));
-            var p3 = new PointF((float)(centerX + 16 * s), (float)(screenY + screenHeight - innerPad - 2 * s));
-            var p4 = new PointF((float)(screenX + screenWidth - innerPad), (float)(screenY + innerPad + 2 * s));
-
-            using (var greenPen = new Pen(Color.Lime, stroke))
-            {
-                greenPen.LineJoin = LineJoin.Round;
-                greenPen.StartCap = LineCap.Round;
-                greenPen.EndCap = LineCap.Round;
-                g.DrawLines(greenPen, new[] { p1, p2, p3, p4 });
-            }
-
-            g.FillEllipse(new SolidBrush(Color.FromArgb(240, 255, 255, 255)),
-                p4.X - 5 * (float)s, p4.Y - 5 * (float)s,
-                10 * (float)s, 10 * (float)s);
-
-            const double baseWidth = 50 * s;
-            const double baseY = screenY + screenHeight + 24 * s;
-            using (var whitePen = new Pen(Color.White, stroke))
-            {
-                whitePen.LineJoin = LineJoin.Round;
-                whitePen.StartCap = LineCap.Round;
-                whitePen.EndCap = LineCap.Round;
-                g.DrawLine(whitePen,
-                    new PointF((float)(centerX - baseWidth / 2), (float)baseY),
-                    new PointF((float)(centerX + baseWidth / 2), (float)baseY));
-            }
+            var external = TryLoad(() => new Icon(externalPath, size.Width, size.Height));
+            if (external is not null) return external;
         }
 
-        var hIcon = bitmap.GetHicon();
-        try
+        var embedded = TryLoad(() => LoadEmbedded(size));
+        if (embedded is not null) return embedded;
+
+        var processPath = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(processPath))
         {
-            return (Icon)Icon.FromHandle(hIcon).Clone();
+            var fromProcess = TryLoad(() => Icon.ExtractAssociatedIcon(processPath));
+            if (fromProcess is not null) return fromProcess;
         }
-        finally
-        {
-            Win32.DestroyIconHandle(hIcon);
-            bitmap.Dispose();
-        }
+
+        Console.Error.WriteLine("app.ico 加载失败，回退到系统默认图标");
+        return SystemIcons.Application;
     }
 
-    private static GraphicsPath RoundRect(float x, float y, float w, float h, float r)
+    private static Icon? LoadEmbedded(Size size)
     {
-        var d = r * 2;
-        var path = new GraphicsPath();
-        path.AddArc(x, y, d, d, 180, 90);
-        path.AddArc(x + w - d, y, d, d, 270, 90);
-        path.AddArc(x + w - d, y + h - d, d, d, 0, 90);
-        path.AddArc(x, y + h - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
+        using var stream = typeof(AppIcon).Assembly.GetManifestResourceStream(EmbeddedResourceName);
+        if (stream is not null) return new Icon(stream, size.Width, size.Height);
+        Console.Error.WriteLine($"未找到内嵌资源：{EmbeddedResourceName}");
+        return null;
+    }
+
+    private static Icon? TryLoad(Func<Icon?> factory)
+    {
+        try
+        {
+            return factory();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"加载图标失败: {ex.Message}");
+            return null;
+        }
     }
 }

@@ -42,15 +42,6 @@ public static partial class Win32
         }
     }
 
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial void DestroyIcon(IntPtr hIcon);
-
-    public static void DestroyIconHandle(nint hIcon)
-    {
-        if (hIcon != nint.Zero) DestroyIcon(hIcon);
-    }
-
     [LibraryImport("kernel32.dll")]
     private static partial uint SetThreadExecutionState(uint esFlags);
 
