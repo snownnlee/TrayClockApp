@@ -25,7 +25,8 @@ public class AppHost(Application application)
             new TimeLabel(),
             new NetSpeedLabel(),
             new MemoryLabel(),
-            new BatteryLabel()
+            new BatteryLabel(),
+            new PowerLabel()
         ];
         _menuItems =
         [

@@ -11,7 +11,7 @@
         <RootNamespace>TrayClockApp</RootNamespace>
         <LangVersion>latest</LangVersion>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <Version>1.0.3</Version>
+        <Version>1.2.0</Version>
         <DebugType>None</DebugType>
         <DebugSymbols>false</DebugSymbols>
         <Company>snownnlee</Company>
@@ -31,6 +31,8 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Management.Infrastructure" Version="3.0.0"/>
+        <!-- 用于读取 Intel RAPL 能量计数器（CPU 封装功耗实测），不可用时自动回退为负载估算 -->
+        <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6"/>
     </ItemGroup>
 
     <ItemGroup>

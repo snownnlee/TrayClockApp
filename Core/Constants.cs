@@ -6,7 +6,7 @@ public static class Constants
 {
     public const string EmojiFont = "Segoe UI Emoji";
 
-    public const int DefaultOpacity = 30;
+    public const int DefaultOpacity = 70;
     public const int DefaultComponentHeight = 25;
     public const bool DefaultDraggable = true;
 
