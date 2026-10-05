@@ -12,20 +12,8 @@ public class BatteryLabel : LabelBase
 {
     private const string SelectedPowerSource = "selectedPowerSource";
 
-    /// <summary>Emoji：禁止进入标志 🚫，用于表示"没有检测到电池"。</summary>
-    private const string EmojiNo = "\U0001F6AB";
-
-    /// <summary>Emoji：电池 🔋，电量图标前缀。</summary>
-    private const string EmojiBattery = "\U0001F50B";
-
-    /// <summary>Emoji：电源插头 🔌，表示当前正在使用交流电源（插电）。</summary>
-    private const string EmojiPowerOn = "\U0001F50C";
-
-    /// <summary>Emoji：闪电 ⚡，表示电池正在充电。</summary>
-    private const string EmojiCharging = "\u26A1";
-
     /// <summary>初始占位文本：电池图标 + "--.--%"（等待第一次采样结果）。</summary>
-    private const string InitBattery = EmojiBattery + " --.--%";
+    private static string InitBattery => AppIcons.Battery + " --.--%";
 
     private volatile string _cachedBattery = InitBattery;
 
@@ -62,14 +50,14 @@ public class BatteryLabel : LabelBase
         }
         else
         {
-            Text.Text = EmojiBattery + EmojiNo;
+            Text.Text = AppIcons.Battery + AppIcons.NoBattery;
             Text.Foreground = Brushes.Gray;
         }
     }
 
     public override void Update()
     {
-        Text.Text = _hasBattery ? _cachedBattery : EmojiBattery + EmojiNo;
+        Text.Text = _hasBattery ? _cachedBattery : AppIcons.Battery + AppIcons.NoBattery;
         Text.Foreground = _hasBattery ? Brushes.Lime : Brushes.Gray;
     }
 
@@ -250,7 +238,7 @@ public class BatteryLabel : LabelBase
         _powerSources = buffer;
         if (!_hasBattery)
         {
-            _cachedBattery = EmojiBattery + EmojiNo;
+            _cachedBattery = AppIcons.Battery + AppIcons.NoBattery;
             return;
         }
 
@@ -269,8 +257,8 @@ public class BatteryLabel : LabelBase
 
         var percent = Math.Clamp(battery.CurrentCapacity * 100.0 / battery.FullChargeCapacity, 0, 100);
 
-        _cachedBattery = EmojiBattery + $"{percent:F2}%" +
-                         (battery.PowerOnLine ? EmojiPowerOn : "") +
-                         (battery.Charging ? EmojiCharging : "");
+        _cachedBattery = AppIcons.Battery + $"{percent:F2}%" +
+                         (battery.PowerOnLine ? AppIcons.PowerOnLine : "") +
+                         (battery.Charging ? AppIcons.Charging : "");
     }
 }

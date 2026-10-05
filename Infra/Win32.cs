@@ -12,6 +12,14 @@ public static partial class Win32
     private const uint EsDisplayRequired = 0x00000002;
     private const uint EsContinuous = 0x80000000;
 
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+
+    private const uint GwHwndPrev = 0x0003;
+
+    private static readonly nint HwndTopmost = new(-1);
+
     [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
     private static partial nint GetWindowLongPtr(nint hWnd, int nIndex);
 
@@ -59,5 +67,24 @@ public static partial class Win32
             ? EsContinuous | EsSystemRequired
             : EsContinuous;
         return SetThreadExecutionState(flags) != 0;
+    }
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial void SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
+    public static void PinToTop(IntPtr hwnd)
+    {
+        if (hwnd == nint.Zero) return;
+        SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+    }
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    private static partial nint GetWindow(nint hWnd, uint uCmd);
+
+    public static bool IsTopOfZOrder(nint hwnd)
+    {
+        if (hwnd == nint.Zero) return true;
+        return GetWindow(hwnd, GwHwndPrev) == nint.Zero;
     }
 }

@@ -19,11 +19,10 @@ public static class TrayIconManager
         BuildMenu(icon.ContextMenuStrip, menuItems);
         icon.Visible = true;
 
-        icon.MouseClick += async (_, e) =>
+        icon.MouseClick += (_, e) =>
         {
             if (e.Button != MouseButtons.Left) return;
 
-            await Task.Delay(TimeSpan.FromSeconds(2));
             WindowUtil.BringToFront(window);
         };
     }

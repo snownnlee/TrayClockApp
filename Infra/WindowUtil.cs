@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using DispatcherTimer = System.Windows.Threading.DispatcherTimer;
 
@@ -7,6 +8,8 @@ namespace TrayClockApp.Infra;
 
 public static class WindowUtil
 {
+    private static nint _topmostHwnd;
+
     public static void ShowErrorDialog(string title, string message)
     {
         MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
@@ -97,4 +100,17 @@ public static class WindowUtil
         window.Topmost = false;
         window.Topmost = true;
     }
+
+    public static void KeepOnTop(Window? window)
+    {
+        if (window is null || !window.IsVisible) return;
+
+        if (_topmostHwnd == nint.Zero) _topmostHwnd = new WindowInteropHelper(window).Handle;
+        if (_topmostHwnd == nint.Zero) return;
+
+        if (Win32.IsTopOfZOrder(_topmostHwnd)) return;
+        Win32.PinToTop(_topmostHwnd);
+    }
+
+    public static void ResetTopmostCache() => _topmostHwnd = nint.Zero;
 }

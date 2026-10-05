@@ -9,17 +9,9 @@ using WF = System.Windows.Forms;
 
 namespace TrayClockApp.Labels;
 
-/// <summary>
-/// 整机功耗标签：电池实测 + Intel RAPL + CPU 负载启发式三级融合（算法见 docs 目录）。
-/// 实测值直接显示，估算值以 “≈” 前缀标注。
-/// </summary>
 public class PowerLabel : LabelBase
 {
-    /// <summary>Emoji：灯泡 💡，功耗图标前缀。</summary>
-    private const string Emoji = "\U0001F4A1 ";
-
-    /// <summary>初始占位文本（等待第一次采样结果）。</summary>
-    private const string InitPower = Emoji + "≈ --.- W";
+    private static string InitPower => AppIcons.Power + "≈ --.- W";
 
     /// <summary>底噪自动值（按机型默认，并在电池放电时自动校准）。</summary>
     private const double AutoIdleWatts = -1;
@@ -62,10 +54,11 @@ public class PowerLabel : LabelBase
     private double _idleWattsOverride = AutoIdleWatts;
     private double _defaultIdleWatts = 30.0;
 
-    /// <summary>上一次显示的功率与来源标记：数值未变时复用缓存的显示文本，避免每秒重复格式化。</summary>
+    /// <summary>上一次显示的功率、来源与图标模式：都未变时复用缓存的显示文本，避免每秒重复格式化。</summary>
     private double _lastShownWatts = double.NaN;
 
     private bool _lastShownEstimated;
+    private bool _lastShownPlainText;
 
     /// <summary>采样重入保护：Timer 不保证回调不重叠，而 PowerMonitor.Sample() 必须串行调用。</summary>
     private int _sampling;
@@ -146,12 +139,14 @@ public class PowerLabel : LabelBase
             var sample = _monitor.Sample();
             _lastSample = sample;
 
-            // 功率与来源未变化时复用上一秒的显示文本，避免重复格式化与无谓的 UI 赋值
+            // 功率、来源与图标模式都未变化时复用上一秒的显示文本，避免重复格式化与无谓的 UI 赋值
             // ReSharper disable once CompareOfFloatsByEqualityOperator
-            if (sample.Watts == _lastShownWatts && sample.IsEstimated == _lastShownEstimated) return;
+            if (sample.Watts == _lastShownWatts && sample.IsEstimated == _lastShownEstimated
+                && AppIcons.PlainText == _lastShownPlainText) return;
 
             _lastShownWatts = sample.Watts;
             _lastShownEstimated = sample.IsEstimated;
+            _lastShownPlainText = AppIcons.PlainText;
             _cachedPower = FormatPower(sample);
         }
         catch (Exception ex)
@@ -313,7 +308,6 @@ public class PowerLabel : LabelBase
 
     private void AddIdleWattsMenuTray(WF.ToolStripMenuItem parent)
     {
-        // 统一缩进到父菜单“底噪设置”：自动 + 常用档位 + 精细档位分组（分组展开后为 1 W 步进档位）
         var idleMenu = new WF.ToolStripMenuItem("底噪设置 >>> ");
 
         var autoItem = new WF.ToolStripMenuItem(AutoIdleText) { Checked = _idleWattsOverride <= 0 };
@@ -347,7 +341,7 @@ public class PowerLabel : LabelBase
     }
 
     private static string FormatPower(PowerSample sample)
-        => Emoji + (sample.IsEstimated ? "≈" : "") + $"{sample.Watts:F1} W";
+        => AppIcons.Power + (sample.IsEstimated ? "≈" : "") + $"{sample.Watts:F1} W";
 
     private static string DescribeSource(PowerSample? sample)
         => sample is null ? "初始化中"

@@ -14,6 +14,9 @@ public class UiMenuItem : MenuItemBase
     private const string DisableDraggable = "禁用拖拽";
     private const string EnableDraggable = "启用拖拽";
 
+    private const string PlainTextIconsKey = "plainTextIcons";
+    private const string PlainTextIconsText = "纯文本图标模式";
+
     private bool _draggable = Constants.DefaultDraggable;
 
     public override void AddUiMenuItem(ContextMenu menu)
@@ -47,6 +50,17 @@ public class UiMenuItem : MenuItemBase
         };
         positionMenu.Items.Add(draggableItem);
 
+        positionMenu.Items.Add(new Separator());
+
+        var plainTextItem = new MenuItem
+        {
+            Header = PlainTextIconsText,
+            IsCheckable = true,
+            IsChecked = AppIcons.PlainText
+        };
+        plainTextItem.Click += (_, _) => SetPlainTextIcons(plainTextItem.IsChecked);
+        positionMenu.Items.Add(plainTextItem);
+
         menu.Items.Add(positionMenu);
     }
 
@@ -77,6 +91,16 @@ public class UiMenuItem : MenuItemBase
         draggableItem.Click += (_, _) => ToggleDraggable();
         positionMenu.DropDownItems.Add(draggableItem);
 
+        positionMenu.DropDownItems.Add(new ToolStripSeparator());
+
+        var plainTextItem = new ToolStripMenuItem(PlainTextIconsText)
+        {
+            Checked = AppIcons.PlainText,
+            CheckOnClick = true
+        };
+        plainTextItem.CheckedChanged += (_, _) => SetPlainTextIcons(plainTextItem.Checked);
+        positionMenu.DropDownItems.Add(plainTextItem);
+
         menu.Items.Add(positionMenu);
     }
 
@@ -85,6 +109,9 @@ public class UiMenuItem : MenuItemBase
         if (config["X"] is JsonValue xValue && config["Y"] is JsonValue yValue &&
             xValue.TryGetValue<int>(out var x) && yValue.TryGetValue<int>(out var y))
             Window!.SetPositionFromConfig(x, y);
+
+        if (config[PlainTextIconsKey] is JsonValue plainValue && plainValue.TryGetValue<bool>(out var plainText))
+            AppIcons.SetPlainText(plainText);
 
         if (config[DraggableKey] is not JsonValue draggableValue || !draggableValue.TryGetValue<bool>(out var draggable)) return;
         _draggable = draggable;
@@ -97,6 +124,16 @@ public class UiMenuItem : MenuItemBase
         if (!double.IsNaN(Window!.Top)) config["Y"] = (int)Window.Top;
 
         config[DraggableKey] = _draggable;
+        config[PlainTextIconsKey] = AppIcons.PlainText;
+    }
+
+    private void SetPlainTextIcons(bool plainText)
+    {
+        if (AppIcons.PlainText == plainText) return;
+
+        AppIcons.SetPlainText(plainText);
+        EventBus.Publish(EventType.ConfigChanged);
+        WindowUtil.ShowToast(plainText ? "已启用纯文本图标模式" : "已启用 emoji 图标模式");
     }
 
     private void ToggleDraggable()

@@ -12,8 +12,7 @@ namespace TrayClockApp.Labels;
 
 public class NetSpeedLabel : LabelBase
 {
-    private const string Emoji = "\U0001F310 ";
-    private const string InitSpeed = Emoji + "--- ↑  --- ↓";
+    private static string InitSpeed => AppIcons.Network + "--- ↑  --- ↓";
     private const string SelectedInterface = "selectedInterface";
 
     private readonly Lock _speedLock = new();
@@ -281,7 +280,7 @@ public class NetSpeedLabel : LabelBase
                 {
                     var uploadSpeed = (_currentUpload - _lastUpload) * 1000 / dt;
                     var downloadSpeed = (_currentDownload - _lastDownload) * 1000 / dt;
-                    _cachedSpeed = Emoji + FormatSpeed(uploadSpeed) + "↑  " + FormatSpeed(downloadSpeed) + "↓";
+                    _cachedSpeed = AppIcons.Network + FormatSpeed(uploadSpeed) + "↑  " + FormatSpeed(downloadSpeed) + "↓";
                 }
             }
 

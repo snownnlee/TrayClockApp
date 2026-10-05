@@ -1,20 +1,19 @@
 using System.Windows.Media;
+using TrayClockApp.Core;
 
 namespace TrayClockApp.Labels;
 
 public class TimeLabel : LabelBase
 {
-    private const string Emoji = "\U0001F551";
-
     public override void Init()
     {
         base.Init();
-        Text.Text = Emoji + "--:--:--";
+        Text.Text = AppIcons.Time + "--:--:--";
         Text.Foreground = Brushes.Cyan;
     }
 
     public override void Update()
     {
-        Text.Text = Emoji + DateTime.Now.ToString("HH:mm:ss");
+        Text.Text = AppIcons.Time + DateTime.Now.ToString("HH:mm:ss");
     }
 }

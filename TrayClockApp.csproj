@@ -11,7 +11,7 @@
         <RootNamespace>TrayClockApp</RootNamespace>
         <LangVersion>latest</LangVersion>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <Version>1.2.1</Version>
+        <Version>1.2.2</Version>
         <DebugType>None</DebugType>
         <DebugSymbols>false</DebugSymbols>
         <Company>snownnlee</Company>

@@ -6,9 +6,7 @@ namespace TrayClockApp.Labels;
 
 public partial class MemoryLabel : LabelBase
 {
-    private const string Emoji = "\U0001F4BE ";
-
-    private volatile string _cachedMemoryRate = Emoji + "--- / --- GB";
+    private volatile string _cachedMemoryRate = AppIcons.Memory + "--- / --- GB";
     private Timer? _sampler;
     private MemoryStatusEx _status = new() { DwLength = (uint)Marshal.SizeOf<MemoryStatusEx>() };
 
@@ -48,7 +46,7 @@ public partial class MemoryLabel : LabelBase
             if (!GlobalMemoryStatusEx(ref _status)) return;
             var totalGb = _status.UllTotalPhys / (double)Constants.DataSize1Gb;
             var usedGb = (_status.UllTotalPhys - _status.UllAvailPhys) / (double)Constants.DataSize1Gb;
-            _cachedMemoryRate = Emoji + $"{usedGb:F1} / {totalGb:F1} GB";
+            _cachedMemoryRate = AppIcons.Memory + $"{usedGb:F1} / {totalGb:F1} GB";
         }
         catch (Exception ex)
         {

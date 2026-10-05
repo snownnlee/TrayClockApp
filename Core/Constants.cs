@@ -4,7 +4,8 @@ namespace TrayClockApp.Core;
 
 public static class Constants
 {
-    public const string EmojiFont = "Segoe UI Emoji";
+    public const string EmojiFont =
+        "Segoe UI Emoji, Segoe UI Symbol, Segoe UI, Noto Emoji, Noto Sans Symbols 2, Symbola, DejaVu Sans";
 
     public const int DefaultOpacity = 70;
     public const int DefaultComponentHeight = 25;

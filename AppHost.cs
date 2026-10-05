@@ -20,6 +20,8 @@ public class AppHost(Application application)
 
     public void InitAndStart()
     {
+        AppIcons.Initialize();
+
         _labels =
         [
             new TimeLabel(),

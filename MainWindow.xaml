@@ -10,7 +10,7 @@
         ResizeMode="NoResize"
         SizeToContent="Width"
         Height="29"
-        FontFamily="Segoe UI Emoji"
+        FontFamily="Segoe UI Emoji, Segoe UI Symbol, Segoe UI, Noto Emoji, Noto Sans Symbols 2, Symbola, DejaVu Sans"
         FontSize="16">
     <StackPanel x:Name="LabelHost" Orientation="Horizontal" Background="Transparent" VerticalAlignment="Center" />
 </Window>
