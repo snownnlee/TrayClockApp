@@ -27,16 +27,16 @@ public static class AppIcons
     // ---------- 图标字符（emoji / 纯文本两套） ----------
 
     /// <summary>时钟。</summary>
-    public static string Time => PlainText ? "[T]" : "\U0001F551";
+    public static string Time => PlainText ? "[T] " : "\U0001F551";
 
     /// <summary>网络。</summary>
-    public static string Network => PlainText ? "[N]" : "\U0001F310";
+    public static string Network => PlainText ? "[N] " : "\U0001F310";
 
     /// <summary>内存。</summary>
-    public static string Memory => PlainText ? "[M]" : "\U0001F4BE";
+    public static string Memory => PlainText ? "[M] " : "\U0001F4BE";
 
     /// <summary>电池。</summary>
-    public static string Battery => PlainText ? "[B]" : "\U0001F50B";
+    public static string Battery => PlainText ? "[B] " : "\U0001F50B";
 
     /// <summary>未检测到电池。</summary>
     public static string NoBattery => PlainText ? "[x]" : "\U0001F6AB";
@@ -48,5 +48,5 @@ public static class AppIcons
     public static string Charging => PlainText ? "[CHG]" : "\u26A1";
 
     /// <summary>整机功耗。</summary>
-    public static string Power => PlainText ? "[P]" : "\U0001F4A1";
+    public static string Power => PlainText ? "[P] " : "\U0001F4A1";
 }
