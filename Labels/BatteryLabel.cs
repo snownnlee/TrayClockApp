@@ -34,7 +34,7 @@ public class BatteryLabel : LabelBase
     public override void Init()
     {
         base.Init();
-        Text.Width = 150;
+        Text.Width = 160;
 
         _powerSources = BatteryIo.QueryAll();
         _hasBattery = _powerSources.Count > 0;

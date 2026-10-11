@@ -67,7 +67,7 @@ public class PowerLabel : LabelBase
     {
         base.Init();
         Text.Text = InitPower;
-        Text.Foreground = Brushes.Orange;
+        Text.Foreground = Brushes.Yellow;
         Text.Width = 100;
     }
 

@@ -33,8 +33,8 @@ public class NetSpeedLabel : LabelBase
     {
         base.Init();
         Text.Text = InitSpeed;
-        Text.Foreground = Brushes.Magenta;
-        Text.Width = 180;
+        Text.Foreground = Brushes.Lime;
+        Text.Width = 190;
         PickDefaultInterface();
     }
 

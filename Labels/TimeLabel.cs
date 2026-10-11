@@ -9,7 +9,7 @@ public class TimeLabel : LabelBase
     {
         base.Init();
         Text.Text = AppIcons.Time + "--:--:--";
-        Text.Foreground = Brushes.Cyan;
+        Text.Foreground = Brushes.Yellow;
     }
 
     public override void Update()
