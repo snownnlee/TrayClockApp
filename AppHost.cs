@@ -36,6 +36,7 @@ public class AppHost(Application application)
             new ToFrontMenuItem(),
             new InteractionMenuItem(),
             new UiMenuItem(),
+            new AntiBurnInMenuItem(),
             new OpacityMenuItem(),
             new LabelComponentMenuItem(_labels),
             new MoreMenuItem(),

@@ -29,17 +29,20 @@ public partial class MainWindow
     private bool _draggable = Constants.DefaultDraggable;
     private bool _dragged;
     private readonly List<IMenuItem> _menuItems;
+    private readonly BrightnessBreathing _brightness;
 
     public MainWindow(IEnumerable<ILabel> labels, List<IMenuItem> menuItems)
     {
         InitializeComponent();
 
         _menuItems = menuItems;
+        _brightness = new BrightnessBreathing(this);
 
         foreach (var label in labels) LabelHost.Children.Add(label.GetTextBlock());
 
         SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
+        Closed += (_, _) => _brightness.Stop();
         MouseLeftButtonDown += OnMouseLeftButtonDown;
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
@@ -61,6 +64,11 @@ public partial class MainWindow
     {
         _configX = x;
         _configY = y;
+    }
+
+    public void SetAntiBurnIn(bool enabled, int amplitudeN, int periodS)
+    {
+        _brightness.Configure(enabled, amplitudeN, periodS);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

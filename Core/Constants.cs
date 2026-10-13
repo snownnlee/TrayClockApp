@@ -11,6 +11,14 @@ public static class Constants
     public const int DefaultComponentHeight = 25;
     public const bool DefaultDraggable = true;
 
+    public const bool DefaultAntiBurnIn = true;
+    public const int DefaultAntiBurnInAmplitudeN = 50;
+    public const int DefaultAntiBurnInPeriodS = 10;
+
+    public const int MaxAmplitudeN = 100;
+    public const int MinAntiBurnInPeriodS = 5;
+    public const int MaxAntiBurnInPeriodS = 3600;
+
     public const long DataSize1Kb = 1024;
     public const long DataSize1Mb = 1024 * 1024;
     public const long DataSize1Gb = 1024 * 1024 * 1024;
