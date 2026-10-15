@@ -66,9 +66,9 @@ public partial class MainWindow
         _configY = y;
     }
 
-    public void SetAntiBurnIn(bool enabled, int amplitudeN, int periodS)
+    public void SetAntiBurnIn(bool enabled, int amplitudeN, int periodS, GradientMode gradient)
     {
-        _brightness.Configure(enabled, amplitudeN, periodS);
+        _brightness.Configure(enabled, amplitudeN, periodS, gradient);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

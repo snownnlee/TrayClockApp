@@ -13,9 +13,11 @@ public class AntiBurnInMenuItem : MenuItemBase
     private const string EnabledKey = "antiBurnIn";
     private const string AmplitudeKey = "antiBurnInAmplitudeN";
     private const string PeriodKey = "antiBurnInPeriodS";
+    private const string GradientKey = "antiBurnInGradient";
 
     private const string HeaderText = "防烧屏 >>> ";
     private const string EnabledText = "启用缓变亮度";
+    private const string GradientHeaderText = "渐变模式 >>> ";
 
     private static readonly int[] AmplitudeList = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
@@ -30,9 +32,16 @@ public class AntiBurnInMenuItem : MenuItemBase
         ("3 分钟", 180)
     ];
 
+    private static readonly (GradientMode Mode, string Text)[] GradientList =
+    [
+        (GradientMode.Sine, "正弦渐变"),
+        (GradientMode.Linear, "线性渐变")
+    ];
+
     private bool _enabled = Constants.DefaultAntiBurnIn;
     private int _amplitudeN = Constants.DefaultAntiBurnInAmplitudeN;
     private int _periodS = Constants.DefaultAntiBurnInPeriodS;
+    private GradientMode _gradient = Constants.DefaultAntiBurnInGradient;
 
     public override void AddUiMenuItem(ContextMenu menu)
     {
@@ -86,6 +95,24 @@ public class AntiBurnInMenuItem : MenuItemBase
 
         antiBurnInMenu.Items.Add(amplitudeMenu);
 
+        var gradientMenu = new MenuItem { Header = GradientHeaderText };
+        foreach (var (mode, text) in GradientList)
+        {
+            var item = new MenuItem
+            {
+                Header = text,
+                IsCheckable = true,
+                IsChecked = mode == _gradient
+            };
+            item.Click += (_, _) =>
+            {
+                if (mode != _gradient) SetGradient(mode, text);
+            };
+            gradientMenu.Items.Add(item);
+        }
+
+        antiBurnInMenu.Items.Add(gradientMenu);
+
         menu.Items.Add(antiBurnInMenu);
     }
 
@@ -130,6 +157,19 @@ public class AntiBurnInMenuItem : MenuItemBase
 
         antiBurnInMenu.DropDownItems.Add(amplitudeMenu);
 
+        var gradientMenu = new ToolStripMenuItem(GradientHeaderText);
+        foreach (var (mode, text) in GradientList)
+        {
+            var item = new ToolStripMenuItem(text) { Checked = mode == _gradient };
+            item.Click += (_, _) =>
+            {
+                if (mode != _gradient) SetGradient(mode, text);
+            };
+            gradientMenu.DropDownItems.Add(item);
+        }
+
+        antiBurnInMenu.DropDownItems.Add(gradientMenu);
+
         menu.Items.Add(antiBurnInMenu);
     }
 
@@ -144,7 +184,11 @@ public class AntiBurnInMenuItem : MenuItemBase
         if (config[PeriodKey] is JsonValue periodValue && periodValue.TryGetValue<int>(out var periodS))
             _periodS = Math.Clamp(periodS, Constants.MinAntiBurnInPeriodS, Constants.MaxAntiBurnInPeriodS);
 
-        Window!.SetAntiBurnIn(_enabled, _amplitudeN, _periodS);
+        if (config[GradientKey] is JsonValue gradientValue && gradientValue.TryGetValue<string>(out var gradientText)
+            && Enum.TryParse(gradientText, ignoreCase: true, out GradientMode gradient))
+            _gradient = gradient;
+
+        Window!.SetAntiBurnIn(_enabled, _amplitudeN, _periodS, _gradient);
     }
 
     public override void OnSaveConfig(JsonObject config)
@@ -152,11 +196,12 @@ public class AntiBurnInMenuItem : MenuItemBase
         config[EnabledKey] = _enabled;
         config[AmplitudeKey] = _amplitudeN;
         config[PeriodKey] = _periodS;
+        config[GradientKey] = _gradient.ToString().ToLowerInvariant();
     }
 
     public override void OnStop()
     {
-        Window!.SetAntiBurnIn(false, 0, _periodS);
+        Window!.SetAntiBurnIn(false, 0, _periodS, _gradient);
     }
 
     private void SetEnabled(bool enabled)
@@ -182,9 +227,16 @@ public class AntiBurnInMenuItem : MenuItemBase
         WindowUtil.ShowToast("缓变周期已切换为：" + text);
     }
 
+    private void SetGradient(GradientMode mode, string text)
+    {
+        _gradient = mode;
+        Apply();
+        WindowUtil.ShowToast("渐变模式已切换为：" + text);
+    }
+
     private void Apply()
     {
-        Window!.SetAntiBurnIn(_enabled, _amplitudeN, _periodS);
+        Window!.SetAntiBurnIn(_enabled, _amplitudeN, _periodS, _gradient);
         EventBus.Publish(EventType.ConfigChanged);
     }
 }

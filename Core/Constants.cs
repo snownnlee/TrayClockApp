@@ -14,6 +14,7 @@ public static class Constants
     public const bool DefaultAntiBurnIn = true;
     public const int DefaultAntiBurnInAmplitudeN = 50;
     public const int DefaultAntiBurnInPeriodS = 10;
+    public const GradientMode DefaultAntiBurnInGradient = GradientMode.Sine;
 
     public const int MaxAmplitudeN = 100;
     public const int MinAntiBurnInPeriodS = 5;
