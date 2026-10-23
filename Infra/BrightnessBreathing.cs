@@ -56,19 +56,7 @@ public sealed class BrightnessBreathing
         _phase += TickInterval.TotalSeconds / _periodS;
         if (_phase >= 1.0) _phase -= 1.0;
 
-        var factor = _gradient == GradientMode.Linear ? LinearFactor(_phase) : SineFactor(_phase);
+        var factor = BreathingCurve.Factor(_gradient, _phase);
         _window.Opacity = 1.0 - _amplitudeN / 100.0 * factor;
-    }
-
-    /// <summary>正弦曲线：两端平缓、中间陡峭；相位 0 最亮，0.5 最暗</summary>
-    private static double SineFactor(double phase)
-    {
-        return (1 - Math.Cos(2 * Math.PI * phase)) / 2;
-    }
-
-    /// <summary>三角波：亮度匀速升降，两端各有一个折点；相位 0 最亮，0.5 最暗</summary>
-    private static double LinearFactor(double phase)
-    {
-        return phase < 0.5 ? phase * 2 : (1 - phase) * 2;
     }
 }

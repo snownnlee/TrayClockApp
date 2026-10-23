@@ -30,6 +30,7 @@ public partial class MainWindow
     private bool _dragged;
     private readonly List<IMenuItem> _menuItems;
     private readonly BrightnessBreathing _brightness;
+    private readonly ColorBreathing _color;
 
     public MainWindow(IEnumerable<ILabel> labels, List<IMenuItem> menuItems)
     {
@@ -37,12 +38,17 @@ public partial class MainWindow
 
         _menuItems = menuItems;
         _brightness = new BrightnessBreathing(this);
+        _color = new ColorBreathing(LabelHost);
 
         foreach (var label in labels) LabelHost.Children.Add(label.GetTextBlock());
 
         SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
-        Closed += (_, _) => _brightness.Stop();
+        Closed += (_, _) =>
+        {
+            _brightness.Stop();
+            _color.Stop();
+        };
         MouseLeftButtonDown += OnMouseLeftButtonDown;
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
@@ -66,9 +72,14 @@ public partial class MainWindow
         _configY = y;
     }
 
-    public void SetAntiBurnIn(bool enabled, int amplitudeN, int periodS, GradientMode gradient)
+    public void SetBrightnessBreathing(bool enabled, int amplitudeN, int periodS, GradientMode gradient)
     {
         _brightness.Configure(enabled, amplitudeN, periodS, gradient);
+    }
+
+    public void SetColorBreathing(bool enabled, int periodS, GradientMode gradient)
+    {
+        _color.Configure(enabled, periodS, gradient);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

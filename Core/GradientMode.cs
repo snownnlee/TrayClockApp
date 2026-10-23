@@ -1,6 +1,6 @@
 namespace TrayClockApp.Core;
 
-/// <summary>缓变亮度的渐变模式：决定亮度随时间变化的曲线形状</summary>
+/// <summary>缓变类功能的渐变模式：决定亮度/色相随时间变化的曲线形状</summary>
 public enum GradientMode
 {
     /// <summary>正弦渐变：两端平缓、中间变化快，无明显折点</summary>

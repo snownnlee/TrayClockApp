@@ -12,9 +12,12 @@ public static class Constants
     public const bool DefaultDraggable = true;
 
     public const bool DefaultAntiBurnIn = true;
-    public const int DefaultAntiBurnInAmplitudeN = 50;
+    public const bool DefaultAntiBurnInColor = true;
+    public const int DefaultAntiBurnInAmplitudeN = 60;
     public const int DefaultAntiBurnInPeriodS = 10;
-    public const GradientMode DefaultAntiBurnInGradient = GradientMode.Sine;
+    public const int DefaultAntiBurnInColorPeriodS = 120;
+    public const GradientMode DefaultAntiBurnInGradient = GradientMode.Linear;
+    public const GradientMode DefaultAntiBurnInColorGradient = GradientMode.Linear;
 
     public const int MaxAmplitudeN = 100;
     public const int MinAntiBurnInPeriodS = 5;
