@@ -40,6 +40,7 @@ public class AppHost(Application application)
             new OpacityMenuItem(),
             new LabelComponentMenuItem(_labels),
             new MoreMenuItem(),
+            new AboutMenuItem(),
             new RestartMenuItem(),
             new ExitMenuItem()
         ];
