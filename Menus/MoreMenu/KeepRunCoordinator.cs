@@ -1,4 +1,5 @@
 using System.Windows.Forms;
+using TrayClockApp.Core;
 using TrayClockApp.Infra;
 using WpfMenuItem = System.Windows.Controls.MenuItem;
 
@@ -28,6 +29,7 @@ internal static class KeepRunCoordinator
         if (previous == mode) return;
         Mode = mode;
         Apply(previous);
+        EventBus.Publish(EventType.StatusChanged);
     }
 
     private static void Apply(KeepAwakeMode previous)

@@ -49,4 +49,10 @@ public static class AppIcons
 
     /// <summary>整机功耗。</summary>
     public static string Power => PlainText ? "[P] " : "\U0001F4A1";
+
+    /// <summary>保持屏幕常亮已开启。</summary>
+    public static string KeepScreenOn => PlainText ? "[SCR] " : "\U0001F506";
+
+    /// <summary>保持系统运行已开启（末尾 VS16 强制 emoji 变体，避免渲染成黑白文本字形）。</summary>
+    public static string KeepSystemRun => PlainText ? "[SYS] " : "\U0001F6E1\uFE0F";
 }
