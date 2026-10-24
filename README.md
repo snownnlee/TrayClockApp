@@ -24,3 +24,47 @@
 ## 发布生成
 
 双击运行根目录下的 `publish.bat`，即可将程序打包为单文件发布到 `publish/` 文件夹，方便拷贝到其他电脑使用（发布前需安装 .NET SDK 10）。
+
+## 发布 Release
+
+面向 GitHub 与 Gitee 双远端的一键发布：构建打包 → 推送分支 → 打标签 → 创建 Release → 上传附件 → 回查校验。
+
+### 一次性准备
+
+1. 生成访问令牌
+   - GitHub：Settings → Developer settings → Personal access tokens，需要 `repo` 权限
+   - Gitee：设置 → 私人令牌，需要 `projects` 权限
+2. 复制 `release.local.json.example` 为 `release.local.json`，填入两个令牌
+   （该文件已在 `.gitignore` 中，不会被提交）
+3. 修改 `TrayClockApp.csproj` 的 `<Version>` 并提交，工作区需保持干净
+
+### 执行
+
+**标签由你手工创建，脚本不代打标签。** 流程是：手工打标签 → 运行脚本 → 脚本读取并校验 → 确认 → 推送与建 Release。
+
+```
+# 1. 手工创建标签（可指向任意提交，例如版本提交而非最新提交）
+git tag v1.5.0 <提交>
+
+# 2. 预演：只做校验与构建，不做任何远端写操作
+release.bat -DryRun
+
+# 3. 正式发布：脚本展示标签指向、产物与目标仓库，输入 y 才继续
+release.bat
+```
+
+脚本会校验三件事：标签确实存在于本地、指向的提交在当前分支历史中、该提交的 `csproj` 版本与标签版本一致。
+任一项不符立即中止，避免打错标签或发错版本。若本地没有对应标签，会中止并提示 `git tag` 命令。
+
+### 发布范式
+
+- 标签：轻量标签 `vX.Y.Z`，由用户在本机手工创建；脚本读取校验后推送到两个远端
+- GitHub Release：`name` 与 `body` 均为 `vX.Y.Z`，附件 `TrayClockApp-vX.Y.Z.exe`
+- Gitee Release：`name` 与 `body` 均为 `vX.Y.Z`，不传附件
+
+### 失败处理
+
+严格模式：任一环节失败立即中止，并输出失败步骤、执行命令、退出码、原始输出、
+已完成与未执行范围，以及已产生的不可逆远端变更与对应回滚命令。
+脚本会在发布前停止正在运行的 `TrayClockApp`（对齐 `publish.bat` 的做法），发布完成后需手工重新启动。
+

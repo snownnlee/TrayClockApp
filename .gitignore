@@ -28,3 +28,6 @@ publish/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Release 凭据（含访问令牌，禁止入库）
+release.local.json

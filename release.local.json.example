@@ -1,0 +1,4 @@
+{
+  "githubToken": "在此填入 GitHub Personal Access Token（需 repo 权限）",
+  "giteeToken": "在此填入 Gitee 私人令牌（需 projects 权限）"
+}
