@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>缓变配色可读性对比</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#232b36;
+    --fg:#e6edf3; --dim:#8b98a8; --accent:#38bdf8;
+    --warn:#f87171; --ok:#34d399;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:28px 32px 40px; background:var(--bg); color:var(--fg);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  }
+  h1{font-size:19px;margin:0 0 6px;font-weight:600;letter-spacing:.2px}
+  .lede{color:var(--dim);font-size:13px;line-height:1.7;margin:0 0 20px;max-width:1080px}
+  .lede code{background:#1f2630;padding:1px 5px;border-radius:4px;color:#9cdcfe;font-size:12px}
+
+  .ctrl{display:flex;flex-wrap:wrap;gap:22px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 16px;margin-bottom:22px;font-size:13px}
+  .ctrl label{color:var(--dim)}
+  .ctrl input[type=range]{width:150px;vertical-align:middle;accent-color:var(--accent)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{background:transparent;border:0;color:var(--dim);font-size:12px;
+    padding:5px 11px;cursor:pointer;font-family:inherit}
+  .seg button.on{background:#1f6feb33;color:var(--accent)}
+  .val{color:var(--fg);font-family:Consolas,monospace}
+
+  /* 场景 */
+  .scene{margin-bottom:14px}
+  .scene-head{display:flex;align-items:baseline;gap:10px;margin:0 0 7px 2px;
+    font-size:12px;color:var(--dim)}
+  .scene-head b{color:var(--fg);font-weight:500;font-size:13px}
+  .scene-head code{color:#6e7681;font-size:11px}
+
+  .strip{position:relative;display:grid;grid-template-columns:repeat(3,1fr);
+    border-radius:10px;overflow:hidden;border:1px solid #ffffff14}
+  .scrim{position:absolute;inset:0;pointer-events:none}
+  .cell{position:relative;padding:13px 16px 11px;display:flex;flex-direction:column;gap:5px;
+    border-right:1px solid #ffffff0f;transition:background .2s}
+  .cell:last-child{border-right:0}
+  .cap{font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;
+    color:#ffffff5c;font-weight:600}
+  .glyph{font-family:Consolas,"Cascadia Mono",monospace;font-weight:700;
+    font-size:21px;line-height:1.25;letter-spacing:.6px}
+  .meta{font-family:Consolas,monospace;font-size:11px;color:#ffffff70;
+    display:flex;gap:10px;flex-wrap:wrap}
+  .meta .warn{color:#fca5a5}
+  .cell.bad{background:#ff000012}
+
+  /* 色相带 */
+  .bands{margin-top:26px}
+  .bands h2{font-size:14px;font-weight:600;margin:0 0 12px;color:var(--fg)}
+  .band{margin-bottom:16px}
+  .band-top{display:flex;justify-content:space-between;font-size:12px;
+    color:var(--dim);margin-bottom:5px}
+  .band-top b{color:var(--fg);font-weight:500}
+  .band-top .worst{font-family:Consolas,monospace}
+  .track{position:relative;height:30px;border-radius:6px;overflow:hidden;
+    border:1px solid #ffffff10}
+  .track canvas{display:block;width:100%;height:30px}
+  .cursor{position:absolute;top:0;bottom:0;width:2px;background:#fff;
+    box-shadow:0 0 0 1px #0009;pointer-events:none}
+  .axis{display:flex;justify-content:space-between;font-size:10.5px;
+    color:#5c6773;font-family:Consolas,monospace;margin-top:3px}
+
+  footer{margin-top:26px;font-size:12px;line-height:1.8;color:var(--dim);
+    border-top:1px solid var(--line);padding-top:14px;max-width:1080px}
+  footer b{color:var(--fg);font-weight:500}
+</style>
+</head>
+<body>
+
+<h1>缓变配色：现状与两类修正方案的实时对比</h1>
+<p class="lede">
+  三列使用<b>同一时间轴、同一底色、同一基础色相（黄 60°）</b>，各自沿色相环推进 360°。
+  底色按项目实际参数还原：窗口背景 <code>rgba(0,0,0,0.694)</code>（不透明度 70%）叠加在桌面上。
+  数字为 WCAG 对比度，<b>4.5:1</b> 为常用可读底线。文字内容固定不变，便于观察颜色变化本身。
+</p>
+
+<div class="ctrl">
+  <span><label>方案 B 感知明度 L</label>
+    <input id="lrange" type="range" min="0.70" max="0.92" step="0.01" value="0.85">
+    <span class="val" id="lval">0.85</span></span>
+  <span><label>方案 A 亮度下限 Y</label>
+    <input id="yrange" type="range" min="0.20" max="0.60" step="0.01" value="0.40">
+    <span class="val" id="yval">0.40</span></span>
+  <span class="seg" id="speed">
+    <button data-s="0.5">0.5×</button>
+    <button data-s="1" class="on">1×</button>
+    <button data-s="2">2×</button>
+    <button data-s="0">暂停</button>
+  </span>
+  <span style="color:#5c6773;font-size:12px">1× ≈ 20 秒走完一圈（项目实际周期 120 秒）</span>
+</div>
+
+<div id="rows"></div>
+
+<div class="bands">
+  <h2>整圈色相上的颜色与可读性（竖线为当前位置）</h2>
+  <div id="bands"></div>
+</div>
+
+<footer>
+  <b>读法：</b>现状列在 210°–270° 区间（青蓝→蓝→紫蓝）会出现明显发暗，亮色桌面上几乎与背景融为一体；
+  方案 A 用“亮度下限”把过暗的颜色向白色混合抬高，暗区被消除，但整圈仍然明暗起伏；
+  方案 B 在 OKLCH 空间保持感知明度恒定，整圈亮度比约 1.1×，代价是超出 sRGB 色域的色相会自动降低彩度，
+  因此红、黄、紫区域会比原色更“柔和”。
+  <br><b>注：</b>灰色标签（无电池时的 <code>#808080</code>）饱和度 S=0，当前位置实现下无论色相如何旋转 RGB 都不变，
+  缓变对它完全失效，需单独处理。
+</footer>
+
+<script>
+"use strict";
+const WINDOW_ALPHA = 70 * 254 / 100 / 255;   // 0.6941，与 OpacityMenuItem 一致
+const BASE_HUE = 60;                          // 黄
+const NOW_TEXT = "23:47:12";
+
+/* ---------- 色彩基础 ---------- */
+const s2l = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+const l2s = v => {
+  v = Math.max(0, Math.min(1, v));
+  const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  return Math.round(s * 255);
+};
+const lum = rgb => 0.2126 * s2l(rgb[0]) + 0.7152 * s2l(rgb[1]) + 0.0722 * s2l(rgb[2]);
+const contrast = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+
+/* 背景：桌面 sRGB 值经 alpha 黑在 gamma 空间混合 */
+const bgY = deskVal => lum([deskVal * (1 - WINDOW_ALPHA), deskVal * (1 - WINDOW_ALPHA), deskVal * (1 - WINDOW_ALPHA)]);
+
+/* 纯色环：HLSL S=1 L=0.5 等价 HSV S=1 V=1 */
+function hslRing(hDeg) {
+  const t = ((hDeg % 360) + 360) % 360 / 60;
+  const x = 1 - Math.abs(t % 2 - 1);
+  let r, g, b;
+  if (t < 1)      { r = 1; g = x; b = 0; }
+  else if (t < 2) { r = x; g = 1; b = 0; }
+  else if (t < 3) { r = 0; g = 1; b = x; }
+  else if (t < 4) { r = 0; g = x; b = 1; }
+  else if (t < 5) { r = x; g = 0; b = 1; }
+  else            { r = 1; g = 0; b = x; }
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+/* 方案 A：保持色相，向白色混合直到 Y 达到下限（线性空间混合，Y 精确等于下限） */
+function liftToY(rgb, ymin) {
+  const y = lum(rgb);
+  if (y >= ymin) return rgb;
+  const t = (ymin - y) / (1 - y);
+  return rgb.map(c => l2s(s2l(c) * (1 - t) + t));
+}
+
+/* ---------- OKLab / OKLCH ---------- */
+function oklabToLin(L, a, b) {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+   -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+   -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+  ];
+}
+const inGamut = v => v.every(c => c >= -1e-4 && c <= 1 + 1e-4);
+
+function oklchToRgb(L, C, hDeg) {
+  const h = hDeg * Math.PI / 180;
+  const cos = Math.cos(h), sin = Math.sin(h);
+  let lin = oklabToLin(L, C * cos, C * sin);
+  if (!inGamut(lin)) {                       // 超域：保 L，二分降 C
+    let lo = 0, hi = C;
+    for (let i = 0; i < 28; i++) {
+      const mid = (lo + hi) / 2;
+      if (inGamut(oklabToLin(L, mid * cos, mid * sin))) lo = mid; else hi = mid;
+    }
+    lin = oklabToLin(L, lo * cos, lo * sin);
+  }
+  return lin.map(l2s);
+}
+
+/* ---------- 三种模式 ---------- */
+function colorCur(hue) { return hslRing(hue); }
+let Y_MIN = 0.40;
+function colorA(hue) { return liftToY(hslRing(hue), Y_MIN); }
+let OK_L = 0.85, OK_C = 0.19;
+function colorB(hue) { return oklchToRgb(OK_L, OK_C, hue); }
+
+const MODES = [
+  { key: "cur", cap: "现状 · HSL 等 S/L", fn: h => colorCur(h) },
+  { key: "a",   cap: "方案 A · 亮度下限",  fn: h => colorA(h) },
+  { key: "b",   cap: "方案 B · OKLCH 等明度", fn: h => colorB(h) }
+];
+
+/* ---------- 场景 ---------- */
+const SCENES = [
+  { name: "深色桌面", hex: "#1a1a1a", val: 26 },
+  { name: "中等桌面", hex: "#6b6b6b", val: 107 },
+  { name: "亮色桌面", hex: "#d8d8d8", val: 216 }
+];
+
+const rowsEl = document.getElementById("rows");
+const cursorEls = [];
+
+for (const sc of SCENES) {
+  const sec = document.createElement("section");
+  sec.className = "scene";
+  const head = document.createElement("div");
+  head.className = "scene-head";
+  head.innerHTML = `<b>${sc.name}</b><code>${sc.hex}</code>`;
+  sec.appendChild(head);
+
+  const strip = document.createElement("div");
+  strip.className = "strip";
+  strip.style.background = sc.hex;
+
+  const scrim = document.createElement("div");
+  scrim.className = "scrim";
+  scrim.style.background = `rgba(0,0,0,${WINDOW_ALPHA})`;
+  strip.appendChild(scrim);
+
+  for (const m of MODES) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.innerHTML =
+      `<div class="cap">${m.cap}</div>` +
+      `<div class="glyph">${NOW_TEXT}</div>` +
+      `<div class="meta"><span class="h"></span><span class="y"></span><span class="c"></span></div>`;
+    cell.dataset.mode = m.key;
+    cell.dataset.desk = sc.val;
+    strip.appendChild(cell);
+  }
+  sec.appendChild(strip);
+  rowsEl.appendChild(sec);
+}
+
+const cells = [...rowsEl.querySelectorAll(".cell")].map(el => ({
+  el, fn: MODES.find(m => m.key === el.dataset.mode).fn,
+  deskY: bgY(+el.dataset.desk),
+  glyph: el.querySelector(".glyph"),
+  h: el.querySelector(".h"), y: el.querySelector(".y"), c: el.querySelector(".c")
+}));
+
+/* ---------- 色相带 ---------- */
+const bandsEl = document.getElementById("bands");
+for (const m of MODES) {
+  const wrap = document.createElement("div");
+  wrap.className = "band";
+  wrap.innerHTML =
+    `<div class="band-top"><b>${m.cap}</b><span class="worst"></span></div>` +
+    `<div class="track"><canvas width="1080" height="30"></canvas><div class="cursor"></div></div>` +
+    `<div class="axis"><span>0°</span><span>60° 黄</span><span>120° 绿</span><span>180° 青</span><span>240° 蓝</span><span>300° 品红</span></div>`;
+  bandsEl.appendChild(wrap);
+  m.canvas = wrap.querySelector("canvas");
+  m.worstEl = wrap.querySelector(".worst");
+  cursorEls.push(wrap.querySelector(".cursor"));
+}
+
+function drawBands() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  for (const m of MODES) {
+    const cv = m.canvas;
+    const w = cv.clientWidth || 1080, h = 30;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    let worst = { v: Infinity, h: 0 };
+    const colW = w / 360;
+    for (let i = 0; i < 360; i++) {
+      const rgb = m.fn(i);
+      ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+      ctx.fillRect(i * colW, 0, Math.ceil(colW), h);
+      // 最差桌面（亮色）下的对比度
+      const c = contrast(lum(rgb), bgY(216));
+      if (c < worst.v) worst = { v: c, h: i };
+    }
+    const cls = worst.v >= 4.5 ? "ok" : "bad";
+    m.worstEl.innerHTML = `<span style="color:${cls === 'ok' ? '#34d399' : '#f87171'}">` +
+      `${worst.v.toFixed(2)}:1</span> 最差 @ ${worst.h}°（亮色桌面）`;
+  }
+}
+
+/* ---------- 动画 ---------- */
+let phase = 0, speed = 1, last = performance.now();
+const CYCLE_MS = 20000;
+
+function frame(now) {
+  const dt = now - last; last = now;
+  if (speed > 0) phase = (phase + dt / CYCLE_MS * speed) % 1;
+
+  const hue = (BASE_HUE + phase * 360) % 360;
+  for (const c of cells) {
+    const rgb = c.fn(hue);
+    c.glyph.style.color = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    const y = lum(rgb), ct = contrast(y, c.deskY);
+    c.h.textContent = `h ${hue.toFixed(0)}°`;
+    c.y.textContent = `Y ${y.toFixed(3)}`;
+    c.c.textContent = `${ct.toFixed(2)}:1`;
+    c.c.className = ct >= 4.5 ? "" : "warn";
+    c.el.classList.toggle("bad", ct < 3.0);
+  }
+  const pct = (hue / 360 * 100).toFixed(2) + "%";
+  for (const cu of cursorEls) cu.style.left = pct;
+
+  requestAnimationFrame(frame);
+}
+
+/* ---------- 交互 ---------- */
+const lr = document.getElementById("lrange"), lv = document.getElementById("lval");
+lr.addEventListener("input", () => { OK_L = +lr.value; lv.textContent = OK_L.toFixed(2); drawBands(); });
+const yr = document.getElementById("yrange"), yv = document.getElementById("yval");
+yr.addEventListener("input", () => { Y_MIN = +yr.value; yv.textContent = Y_MIN.toFixed(2); drawBands(); });
+
+document.getElementById("speed").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...e.currentTarget.children].forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  speed = +b.dataset.s;
+});
+
+window.addEventListener("resize", drawBands);
+requestAnimationFrame(() => { drawBands(); });
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
