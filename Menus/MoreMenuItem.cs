@@ -12,7 +12,8 @@ public class MoreMenuItem : MenuItemBase
     private readonly IMoreMenuItem[] _moreMenuItems =
     [
         new KeepScreenOnMoreMenuItem(),
-        new KeepSystemRunMoreMenuItem()
+        new KeepSystemRunMoreMenuItem(),
+        new AutoStartMoreMenuItem()
     ];
 
     public override void Init()

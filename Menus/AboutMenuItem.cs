@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Forms;
@@ -10,10 +11,13 @@ namespace TrayClockApp.Menus;
 
 /// <summary>
 /// “关于”菜单：仅出现在托盘右键菜单中（不注入悬浮条右键菜单）。
-/// 子项：显示当前版本、检查更新（检查 → 下载 → 备份替换 → 启动新版）。
+/// 子项：显示当前版本、官方网址（Gitee / GitHub）、检查更新（检查 → 下载 → 备份替换 → 启动新版）。
 /// </summary>
 public class AboutMenuItem : MenuItemBase
 {
+    private const string GitHubUrl = "https://github.com/snownnlee/TrayClockApp";
+    private const string GiteeUrl = "https://gitee.com/snownnlee/TrayClockApp";
+
     private static readonly TimeSpan CheckTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(15);
 
@@ -28,6 +32,20 @@ public class AboutMenuItem : MenuItemBase
         var versionItem = new ToolStripMenuItem($"当前版本：{AppVersion.Display}");
         versionItem.Click += (_, _) => ShowVersionInfo();
         aboutItem.DropDownItems.Add(versionItem);
+
+        aboutItem.DropDownItems.Add(new ToolStripSeparator());
+
+        var officialItem = new ToolStripMenuItem("官方网址");
+
+        var giteeItem = new ToolStripMenuItem("Gitee");
+        giteeItem.Click += (_, _) => OpenUrl(GiteeUrl);
+        officialItem.DropDownItems.Add(giteeItem);
+
+        var githubItem = new ToolStripMenuItem("GitHub");
+        githubItem.Click += (_, _) => OpenUrl(GitHubUrl);
+        officialItem.DropDownItems.Add(githubItem);
+
+        aboutItem.DropDownItems.Add(officialItem);
 
         aboutItem.DropDownItems.Add(new ToolStripSeparator());
 
@@ -64,6 +82,20 @@ public class AboutMenuItem : MenuItemBase
 
         MessageBox.Show(string.Join(Environment.NewLine, lines), "关于",
             MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"打开链接失败: {ex.Message}");
+            MessageBox.Show("打开链接失败：" + ex.Message, "官方网址",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private Task RunCheckAsync()
