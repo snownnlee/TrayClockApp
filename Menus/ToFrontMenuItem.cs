@@ -24,7 +24,7 @@ public class ToFrontMenuItem : MenuItemBase
         ("9秒后", 9000)
     ];
 
-    private bool _autoToFrontOn;
+    private bool _autoToFrontOn = Constants.DefaultAutoToFrontOn;
     private DispatcherTimer? _autoToFrontTimer;
 
     public override void AddTrayMenuItem(ContextMenuStrip menu)

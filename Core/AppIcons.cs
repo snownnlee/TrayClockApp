@@ -5,7 +5,7 @@ namespace TrayClockApp.Core;
 
 public static class AppIcons
 {
-    public static bool PlainText { get; private set; }
+    public static bool PlainText { get; private set; } = Constants.DefaultPlainTextIcons;
 
     private static readonly string[] EmojiFontCandidates = ["Segoe UI Emoji", "Noto Emoji"];
 

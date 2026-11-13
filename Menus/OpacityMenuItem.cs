@@ -72,6 +72,14 @@ public class OpacityMenuItem : MenuItemBase
         menu.Items.Add(opacityMenu);
     }
 
+    public override void OnMainWindowCreated(MainWindow window)
+    {
+        base.OnMainWindowCreated(window);
+
+        // 先按默认值套用一次，配置里没有 opacityN 时也能生效（窗口尚未 Show，不会闪一下 XAML 里的初始透明度）
+        ChangeWindowOpacity();
+    }
+
     public override void OnLoadConfig(JsonObject config)
     {
         if (config[OpacityNKey] is not JsonValue value || !value.TryGetValue<int>(out var opacityN)) return;

@@ -15,7 +15,7 @@ public class InteractionMenuItem : MenuItemBase
     private const string DisableInteraction = "禁用交互";
     private const string EnableInteraction = "启用交互";
 
-    private bool _interaction;
+    private bool _interaction = Constants.DefaultInteraction;
 
     public override void AddUiMenuItem(ContextMenu menu)
     {

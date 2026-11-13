@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using System.Windows.Forms;
@@ -12,6 +13,9 @@ namespace TrayClockApp;
 
 public class AppHost(Application application)
 {
+    /// <summary>Win32 错误码：用户取消 UAC 授权。</summary>
+    private const int ErrorCancelled = 1223;
+
     private readonly NotifyIcon _trayIcon = new();
     private List<ILabel> _labels = [];
     private List<IMenuItem> _menuItems = [];
@@ -61,6 +65,7 @@ public class AppHost(Application application)
 
             EventBus.Register(EventType.ConfigChanged, (_, _) => SaveConfig());
             EventBus.Register(EventType.Restart, (_, _) => Restart());
+            EventBus.Register(EventType.RestartAsAdmin, (_, _) => RestartAsAdmin());
             EventBus.Register(EventType.Exit, (_, _) => Exit());
 
             Start();
@@ -126,6 +131,37 @@ public class AppHost(Application application)
         {
             UseShellExecute = true
         });
+        application.Shutdown();
+    }
+
+    /// <summary>
+    /// 以管理员身份重启：先提权启动新实例（UAC 可能在此时被取消），
+    /// 启动成功后再销毁当前实例，避免用户取消授权后程序直接退出。
+    /// </summary>
+    private void RestartAsAdmin()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(Environment.ProcessPath!)
+            {
+                UseShellExecute = true,
+                Verb = "runas"
+            });
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
+        {
+            WindowUtil.ShowToast("已取消以管理员身份重启");
+            return;
+        }
+        catch (Exception ex)
+        {
+            WindowUtil.ShowErrorDialog("重启失败", "以管理员身份重启失败: " + ex.Message);
+            return;
+        }
+
+        Destroy();
+
+        Console.WriteLine("应用准备以管理员身份重启！");
         application.Shutdown();
     }
 

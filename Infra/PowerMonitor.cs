@@ -3,11 +3,12 @@ using System.Runtime.InteropServices;
 using System.Security.Principal;
 using LibreHardwareMonitor.PawnIo;
 using Microsoft.Win32;
+using TrayClockApp.Core;
 
 namespace TrayClockApp.Infra;
 
 /// <summary>
-/// 一次功耗采样结果。算法与移植说明见 docs/PowerMonitor-算法与移植说明.md。
+/// 一次功耗采样结果。算法说明见 <see cref="PowerMonitor.Sample"/> 内的 ①②③ 分步注释。
 /// </summary>
 internal sealed class PowerSample
 {
@@ -273,8 +274,38 @@ internal sealed class RaplReader : IDisposable
 /// </summary>
 internal sealed partial class PowerMonitor : IDisposable
 {
-    /// <summary>整机待机底噪功耗（W）。笔记本约 8~15，台式机约 30~60。有电池时构造默认 10。</summary>
-    public double IdleWatts { get; set; } = 30.0;
+    /// <summary>机型默认底噪（W）：有电池 10，无电池 30。构造时确定，运行期不再变化。</summary>
+    public double DefaultIdleWatts { get; private set; } = 30.0;
+
+    /// <summary>手动指定的底噪（W）；≤ 0 表示“自动”。手动锁定期间不再做放电校准。</summary>
+    public double ManualIdleWatts { get; set; } = -1;
+
+    /// <summary>是否处于“自动”底噪模式（未被手动锁定）。</summary>
+    public bool AutoIdle => ManualIdleWatts <= 0;
+
+    /// <summary>
+    /// 放电校准得到的底噪（W，放电会话内 baseline 的时间窗口均值）；≤ 0 表示尚未校准。
+    /// 可写入上次落盘的结果，让重启后直接沿用（下次放电时由新会话的窗口均值覆盖）。
+    /// </summary>
+    public double CalibratedIdleWatts
+    {
+        get => _calibratedIdle;
+        set => _calibratedIdle = double.IsFinite(value) && value is > 1 and < 200 ? value : -1;
+    }
+
+    /// <summary>当前实际参与估算的底噪（W）：手动 &gt; 放电校准 &gt; 机型默认。</summary>
+    public double EffectiveIdleWatts => ManualIdleWatts > 0
+        ? ManualIdleWatts
+        : _calibratedIdle > 0
+            ? _calibratedIdle
+            : DefaultIdleWatts;
+
+    /// <summary>当前底噪数值的来源，供界面显示。</summary>
+    public string IdleWattsSource => ManualIdleWatts > 0
+        ? "手动"
+        : _calibratedIdle > 0
+            ? "放电校准"
+            : "机型默认";
 
     /// <summary>CPU 的 TDP（W）。仅在 RAPL 不可用时参与估算。</summary>
     private double TdpWatts { get; set; } = 65.0;
@@ -290,8 +321,15 @@ internal sealed partial class PowerMonitor : IDisposable
 
     // ---------- 内部状态（必须跨采样保持，切勿每帧 new 本类） ----------
     private readonly RaplReader _rapl = new();
-    private double _calibratedIdle = -1; // 自动校准的底噪（-1 = 未校准）
+    private double _calibratedIdle = -1; // 放电校准（窗口均值）的底噪（-1 = 未校准；手动锁定期间保持不变）
     private double _dischargeEma = -1; // 电池放电功率 EMA（-1 = 无数据/插电中）
+
+    /// <summary>校准时间窗口内的 baseline 样本（时间戳, 值），超出窗口的样本出队。</summary>
+    private readonly Queue<(long Timestamp, double Baseline)> _baselineWindow = new();
+
+    /// <summary>窗口内 baseline 之和（O(1) 求均值，避免每帧遍历）。</summary>
+    private double _baselineSum;
+
     private ulong _lastIdle, _lastKernel, _lastUser;
 
     public PowerMonitor()
@@ -301,7 +339,7 @@ internal sealed partial class PowerMonitor : IDisposable
         // 有电池（笔记本）默认底噪 10W / TDP 28W；无电池（台式机）默认底噪 30W / TDP 65W
         if (ReadBatteryState().HasBattery)
         {
-            IdleWatts = 10.0;
+            DefaultIdleWatts = 10.0;
             TdpWatts = 28.0;
         }
 
@@ -325,6 +363,7 @@ internal sealed partial class PowerMonitor : IDisposable
         else
         {
             _dischargeEma = -1; // 切到插电状态必须重置，避免跨状态污染
+            ResetBaselineWindow(); // 本次放电会话结束：清空窗口，但保留已算出的窗口均值
         }
 
         // ② 电池放电中：整机实测值 + 顺带校准底噪
@@ -332,23 +371,14 @@ internal sealed partial class PowerMonitor : IDisposable
         {
             var watts = _dischargeEma > 0 ? _dischargeEma : bat.DischargeMw / 1000.0;
 
-            // 有 RAPL 实测值时，顺带用 (整机 − CPU 包) 反推校准底噪
-            if (pkg is not { } p)
-                return new PowerSample
-                {
-                    Watts = Math.Round(watts, 1),
-                    IsEstimated = false,
-                    CpuLoadPct = cpu,
-                    AcOnline = false,
-                    BatteryPct = bat.RemainPct,
-                    RemainingMinutes = bat.RemainMin,
-                    PkgWatts = pkg,
-                };
-            var baseline = watts - p; // 非 CPU 部分 ≈ 屏幕/内存/硬盘/主板
-            if (baseline is > 1 and < 200) // 异常样本丢弃
-                _calibratedIdle = _calibratedIdle < 0
-                    ? baseline
-                    : _calibratedIdle * 0.95 + baseline * 0.05; // α=0.05 慢速平滑
+            // 有 RAPL 实测值且处于自动模式时，用 (整机 − CPU 包) 反推底噪，并入时间窗口统计；
+            // 手动锁定底噪期间跳过校准，避免手动值被悄悄覆盖
+            if (pkg is { } p && AutoIdle)
+            {
+                var baseline = watts - p; // 非 CPU 部分 ≈ 屏幕/内存/硬盘/主板
+                if (baseline is > 1 and < 200) // 异常样本丢弃
+                    PushBaseline(baseline);
+            }
 
             return new PowerSample
             {
@@ -363,7 +393,7 @@ internal sealed partial class PowerMonitor : IDisposable
         }
 
         // ③ 插电 / 无电池：底噪 + CPU 部分功耗
-        var idle = _calibratedIdle > 0 ? _calibratedIdle : IdleWatts;
+        var idle = EffectiveIdleWatts;
         var cpuPart = pkg ?? cpu / 100.0 * TdpWatts * 0.9;
 
         return new PowerSample
@@ -375,6 +405,35 @@ internal sealed partial class PowerMonitor : IDisposable
             BatteryPct = bat.RemainPct,
             PkgWatts = pkg,
         };
+    }
+
+    /// <summary>
+    /// 把一次有效 baseline 压入时间窗口，并用窗口算术平均刷新校准值。
+    /// 单点波动会被窗口摊平；切到插电后估算用的就是这个均值。
+    /// </summary>
+    private void PushBaseline(double baseline)
+    {
+        var now = Stopwatch.GetTimestamp();
+        _baselineWindow.Enqueue((now, baseline));
+        _baselineSum += baseline;
+
+        var cutoff = now - WindowTicks;
+        while (_baselineWindow.Count > 0 && _baselineWindow.Peek().Timestamp < cutoff)
+            _baselineSum -= _baselineWindow.Dequeue().Baseline;
+
+        // 刚入队的那一个必然在窗口内，Count 不会为 0
+        _calibratedIdle = _baselineSum / _baselineWindow.Count;
+    }
+
+    /// <summary>窗口时长（<see cref="Constants.IdleCalibrationWindowS"/>）对应的 Stopwatch 刻度数。</summary>
+    private static long WindowTicks => (long)(Constants.IdleCalibrationWindowS * (double)Stopwatch.Frequency);
+
+    /// <summary>清空窗口（放电会话结束时调用），已算出的窗口均值保留在 _calibratedIdle 中。</summary>
+    private void ResetBaselineWindow()
+    {
+        if (_baselineWindow.Count == 0) return;
+        _baselineWindow.Clear();
+        _baselineSum = 0;
     }
 
     /// <summary>CPU 总负载（GetSystemTimes 差分；kernelTime 已含 idleTime，需减去）。</summary>

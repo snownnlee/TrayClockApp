@@ -22,9 +22,9 @@ public enum AutoStartStatus
 }
 
 /// <summary>
-/// 开机启动：以计划任务（登录时触发）注册当前程序。
-/// “已注册”的判定为三项同时满足：任务存在、启动路径为当前 exe、任务处于启用状态。
-/// 注册通过 schtasks /Create /XML 完成（XML 才能写入工作目录 Start In），需要管理员权限，被拒后以 UAC 提升重试一次。
+/// 开机启动：以计划任务（登录时触发）注册当前程序，任务以管理员身份运行（RunLevel=HighestAvailable）。
+/// “已注册”的判定为任务存在且启用，启动路径不是当前 exe 时另行标记。
+/// 注册通过 schtasks /Create /XML 完成（XML 才能写入工作目录 Start In），schtasks 始终以管理员权限执行。
 /// </summary>
 public static class AutoStartService
 {
@@ -36,7 +36,8 @@ public static class AutoStartService
     /// <summary>用户在 UAC 授权提示中点了取消。</summary>
     private const int ErrorCancelled = 1223;
 
-    private const string DefaultRunLevel = "LeastPrivilege";
+    /// <summary>任务以管理员身份运行。</summary>
+    private const string RunLevelHighest = "HighestAvailable";
 
     private static XNamespace Ns => TaskNamespace;
 
@@ -63,9 +64,8 @@ public static class AutoStartService
         {
             if (enable)
             {
-                // 已存在则沿用其运行级别，避免覆盖时悄悄改变权限
                 xmlPath = Path.Combine(Path.GetTempPath(), $"TrayClockApp-AutoStart-{Guid.NewGuid():N}.xml");
-                WriteTaskXml(xmlPath, state.RunLevel);
+                WriteTaskXml(xmlPath);
                 arguments = $"/Create /F /TN \"{TaskName}\" /XML \"{xmlPath}\"";
             }
             else
@@ -80,14 +80,9 @@ public static class AutoStartService
 
         try
         {
-            var attempt = await RunSchtasksAsync(arguments, elevate: false);
-            if (attempt.ExitCode == 0) return Ok(enable, existed);
-
-            Console.Error.WriteLine($"[AutoStart] schtasks 首次执行失败（退出码 {attempt.ExitCode}）：{attempt.Output}");
-
-            // 绝大多数失败原因是没有管理员权限，改为 UAC 提升后重试
-            var elevated = await RunSchtasksAsync(arguments, elevate: true);
-            return elevated.ExitCode == 0 ? Ok(enable, existed) : Fail(enable, elevated.ExitCode);
+            // 始终以管理员身份执行 schtasks（会触发 UAC 授权提示）
+            var exitCode = await RunElevatedAsync(arguments);
+            return exitCode == 0 ? Ok(enable, existed) : Fail(enable, exitCode);
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
         {
@@ -111,7 +106,7 @@ public static class AutoStartService
     private static AutoStartResult Fail(bool enable, int exitCode) =>
         new(false, false,
             (enable ? "注册开机启动失败" : "取消开机启动失败")
-            + $"（schtasks 返回 {exitCode}），请以管理员身份运行本程序后重试。");
+            + $"（schtasks 返回 {exitCode}），请确认当前账户可提升为管理员后重试。");
 
     /// <summary>读取计划任务当前状态；任务不存在时返回 <see cref="TaskState.Missing"/>。</summary>
     private static TaskState Inspect()
@@ -131,11 +126,7 @@ public static class AutoStartService
             var enabledNode = root.Element(Ns + "Settings")?.Element(Ns + "Enabled");
             var enabled = enabledNode is null || !bool.TryParse(enabledNode.Value, out var value) || value;
 
-            var runLevel = (string?)root.Element(Ns + "Principals")?.Elements(Ns + "Principal")
-                .FirstOrDefault()?.Element(Ns + "RunLevel");
-
-            return new TaskState(true, IsCurrentExecutable(command), enabled,
-                string.IsNullOrWhiteSpace(runLevel) ? DefaultRunLevel : runLevel!);
+            return new TaskState(true, IsCurrentExecutable(command), enabled);
         }
         catch (Exception ex)
         {
@@ -149,7 +140,7 @@ public static class AutoStartService
 
     private static string NormalizePath(string? path) => (path ?? string.Empty).Trim().Trim('"');
 
-    private static void WriteTaskXml(string path, string runLevel)
+    private static void WriteTaskXml(string path)
     {
         var user = $"{Environment.UserDomainName}\\{Environment.UserName}";
         var doc = new XDocument(
@@ -164,7 +155,7 @@ public static class AutoStartService
                     new XElement(Ns + "Principal", new XAttribute("id", "Author"),
                         new XElement(Ns + "UserId", user),
                         new XElement(Ns + "LogonType", "InteractiveToken"),
-                        new XElement(Ns + "RunLevel", runLevel))),
+                        new XElement(Ns + "RunLevel", RunLevelHighest))),
                 new XElement(Ns + "Settings",
                     new XElement(Ns + "MultipleInstancesPolicy", "IgnoreNew"),
                     new XElement(Ns + "DisallowStartIfOnBatteries", "false"),
@@ -212,21 +203,14 @@ public static class AutoStartService
         return (process.ExitCode, output);
     }
 
-    private static async Task<(int ExitCode, string Output)> RunSchtasksAsync(string arguments, bool elevate)
+    /// <summary>以管理员身份执行 schtasks（弹 UAC）；返回退出码。</summary>
+    private static async Task<int> RunElevatedAsync(string arguments)
     {
-        using var process = Process.Start(CreateStartInfo(arguments, elevate))
+        // 提升后的进程无法重定向输出，只取退出码
+        using var process = Process.Start(CreateStartInfo(arguments, elevate: true))
             ?? throw new InvalidOperationException("无法启动 schtasks.exe。");
-
-        if (elevate) // 提升后的进程无法重定向输出，只取退出码
-        {
-            await process.WaitForExitAsync();
-            return (process.ExitCode, string.Empty);
-        }
-
-        var output = await process.StandardOutput.ReadToEndAsync();
-        output += await process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
-        return (process.ExitCode, output);
+        return process.ExitCode;
     }
 
     private static ProcessStartInfo CreateStartInfo(string arguments, bool elevate) => new("schtasks.exe", arguments)
@@ -240,9 +224,9 @@ public static class AutoStartService
     };
 
     /// <summary>计划任务快照。</summary>
-    private sealed record TaskState(bool Exists, bool PointsToCurrentExe, bool Enabled, string RunLevel)
+    private sealed record TaskState(bool Exists, bool PointsToCurrentExe, bool Enabled)
     {
-        public static readonly TaskState Missing = new(false, false, false, DefaultRunLevel);
+        public static readonly TaskState Missing = new(false, false, false);
 
         /// <summary>任务存在且启用即为“已注册”，路径不一致时单独标记。</summary>
         public AutoStartStatus Status => !Exists || !Enabled

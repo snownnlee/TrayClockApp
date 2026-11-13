@@ -88,11 +88,11 @@ public class AutoStartMoreMenuItem : MoreMenuItemBase
         var target = !registered;
         var message = target
             ? $"确定要注册开机启动吗？{Environment.NewLine}{Environment.NewLine}"
-              + $"将创建（或覆盖）计划任务「{AutoStartService.TaskName}」，使其指向当前程序并在登录 Windows 后自动启动。"
-              + $"{Environment.NewLine}{Environment.NewLine}该操作通常需要管理员权限，可能会弹出 UAC 授权提示。"
+              + $"将创建（或覆盖）计划任务「{AutoStartService.TaskName}」，使其指向当前程序，并以管理员身份在登录 Windows 后自动启动。"
+              + $"{Environment.NewLine}{Environment.NewLine}该操作将以管理员权限执行，会弹出 UAC 授权提示。"
             : $"确定要取消开机启动吗？{Environment.NewLine}{Environment.NewLine}"
               + $"将删除计划任务「{AutoStartService.TaskName}」，登录 Windows 后不再自动启动本程序。"
-              + $"{Environment.NewLine}{Environment.NewLine}该操作通常需要管理员权限，可能会弹出 UAC 授权提示。";
+              + $"{Environment.NewLine}{Environment.NewLine}该操作将以管理员权限执行，会弹出 UAC 授权提示。";
 
         var answer = MessageBox.Show(message, Title, MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (answer != MessageBoxResult.Yes) return;

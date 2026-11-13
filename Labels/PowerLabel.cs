@@ -13,11 +13,14 @@ public class PowerLabel : LabelBase
 {
     private static string InitPower => AppIcons.Power + "≈ --.- W";
 
-    /// <summary>底噪自动值（按机型默认，并在电池放电时自动校准）。</summary>
-    private const double AutoIdleWatts = -1;
+    /// <summary>底噪“自动”哨兵值（≤ 0）：交回机型默认，并在电池放电时自动校准。</summary>
+    private const double AutoIdleWatts = Constants.DefaultIdleWatts;
 
     /// <summary>底噪手动设置在配置文件中的键名。</summary>
     private const string IdleWattsKey = "idleWatts";
+
+    /// <summary>放电校准结果的持久化键名（重启后直接沿用，避免每次都从机型默认重新学习）。</summary>
+    private const string CalibratedIdleWattsKey = "calibratedIdleWatts";
 
     /// <summary>底噪“自动”项的显示文本。</summary>
     private const string AutoIdleText = "自动（默认）";
@@ -52,11 +55,20 @@ public class PowerLabel : LabelBase
     private volatile PowerSample? _lastSample;
     private Timer? _sampler;
     private double _idleWattsOverride = AutoIdleWatts;
-    private double _defaultIdleWatts = 30.0;
 
-    /// <summary>上一次显示的功率、来源与图标模式：都未变时复用缓存的显示文本，避免每秒重复格式化。</summary>
+    /// <summary>上次落盘的放电校准底噪（≤ 0 表示没有），监控对象创建时写入。</summary>
+    private double _savedCalibratedIdle = AutoIdleWatts;
+
+    /// <summary>已落盘的校准值快照，用于节流判断（避免每帧都写配置文件）。</summary>
+    private double _persistedCalibratedIdle = AutoIdleWatts;
+
+    /// <summary>上次因校准值变化触发保存的时刻（Environment.TickCount64，0 = 尚未保存过）。</summary>
+    private long _lastCalibrationSaveTick;
+
+    /// <summary>上一次显示的功率、底噪、来源与图标模式：都未变时复用缓存的显示文本，避免每秒重复格式化。</summary>
     private double _lastShownWatts = double.NaN;
 
+    private double _lastShownIdleWatts = double.NaN;
     private bool _lastShownEstimated;
     private bool _lastShownPlainText;
 
@@ -68,7 +80,10 @@ public class PowerLabel : LabelBase
         base.Init();
         Text.Text = InitPower;
         Text.Foreground = Brushes.Yellow;
-        Text.Width = 100;
+
+        // 宽度按“💡≈ 999.9 W (999 W)”并兼顾纯文本图标模式（“[P] ≈ 999.9 W (999 W)”）估算，
+        // 固定宽度可避免数字位数变化时整条悬浮条抖动，同时留足左右边距不贴边
+        Text.Width = 175;
     }
 
     public override void Update()
@@ -108,21 +123,33 @@ public class PowerLabel : LabelBase
 
     public override void OnLoadConfig(JsonObject config)
     {
-        if (config[IdleWattsKey] is not JsonValue value) return;
+        if (ReadWatts(config[IdleWattsKey]) is { } manual && manual is > 0 and <= 200)
+        {
+            _idleWattsOverride = manual;
+            ApplyIdleWatts();
+        }
 
-        double watts;
-        if (value.TryGetValue<double>(out var d)) watts = d;
-        else if (value.TryGetValue<int>(out var i)) watts = i;
-        else return;
-
-        if (watts is <= 0 or > 200) return;
-        _idleWattsOverride = watts;
-        ApplyIdleWatts();
+        if (ReadWatts(config[CalibratedIdleWattsKey]) is { } calibrated)
+        {
+            _savedCalibratedIdle = calibrated;
+            _persistedCalibratedIdle = calibrated; // 已落盘过的值，启动后不必再重写一次
+        }
     }
 
     public override void OnSaveConfig(JsonObject config)
     {
         if (_idleWattsOverride > 0) config[IdleWattsKey] = _idleWattsOverride;
+
+        if (_monitor is { } monitor && monitor.CalibratedIdleWatts > 0)
+            config[CalibratedIdleWattsKey] = Math.Round(monitor.CalibratedIdleWatts, 2);
+    }
+
+    /// <summary>读取配置里的瓦数（JSON 里可能被写成整数或小数）。</summary>
+    private static double? ReadWatts(JsonNode? node)
+    {
+        if (node is not JsonValue value) return null;
+        if (value.TryGetValue<double>(out var d)) return d;
+        return value.TryGetValue<int>(out var i) ? i : null;
     }
 
     private void CalculatePower()
@@ -138,16 +165,21 @@ public class PowerLabel : LabelBase
 
             var sample = _monitor.Sample();
             _lastSample = sample;
+            MaybePersistCalibratedIdle();
 
-            // 功率、来源与图标模式都未变化时复用上一秒的显示文本，避免重复格式化与无谓的 UI 赋值
+            var idleWatts = _monitor.EffectiveIdleWatts;
+
+            // 功率、底噪、来源与图标模式都未变化时复用上一秒的显示文本，避免重复格式化与无谓的 UI 赋值
             // ReSharper disable once CompareOfFloatsByEqualityOperator
             if (sample.Watts == _lastShownWatts && sample.IsEstimated == _lastShownEstimated
-                && AppIcons.PlainText == _lastShownPlainText) return;
+                && AppIcons.PlainText == _lastShownPlainText
+                && Math.Abs(idleWatts - _lastShownIdleWatts) < 0.05) return;
 
             _lastShownWatts = sample.Watts;
             _lastShownEstimated = sample.IsEstimated;
             _lastShownPlainText = AppIcons.PlainText;
-            _cachedPower = FormatPower(sample);
+            _lastShownIdleWatts = idleWatts;
+            _cachedPower = FormatPowerWithIdle(sample, idleWatts);
         }
         catch (Exception ex)
         {
@@ -162,7 +194,10 @@ public class PowerLabel : LabelBase
     private PowerMonitor CreateMonitor()
     {
         var monitor = new PowerMonitor();
-        _defaultIdleWatts = monitor.IdleWatts; // 机型默认底噪（有电池 10W / 无电池 30W）
+
+        // 沿用上次落盘的放电校准值（本次放电时会在此基础上继续慢速收敛）
+        if (_savedCalibratedIdle > 0) monitor.CalibratedIdleWatts = _savedCalibratedIdle;
+
         ApplyIdleWatts(monitor);
         return monitor;
     }
@@ -174,8 +209,31 @@ public class PowerLabel : LabelBase
 
     private void ApplyIdleWatts(PowerMonitor monitor)
     {
-        // 手动值为正时优先；否则回退到机型默认（电池放电时的自动校准仍会在 Sample() 内生效）
-        monitor.IdleWatts = _idleWattsOverride > 0 ? _idleWattsOverride : _defaultIdleWatts;
+        // 手动值为正时锁定；否则交回自动（放电校准 &gt; 机型默认）
+        monitor.ManualIdleWatts = _idleWattsOverride > 0 ? _idleWattsOverride : AutoIdleWatts;
+    }
+
+    /// <summary>
+    /// 校准值节流落盘：窗口均值相对上次落盘值的变动超过阈值、且距上次保存超过最小间隔时才写一次配置，
+    /// 避免放电期间每秒变化都触发整文件写入。首次学习到的校准值会立即保存。
+    /// </summary>
+    private void MaybePersistCalibratedIdle()
+    {
+        // 手动锁定期间校准值不更新，也没有保存的意义
+        if (_monitor is not { AutoIdle: true } monitor) return;
+
+        var calibrated = monitor.CalibratedIdleWatts;
+        if (calibrated <= 0) return;
+
+        if (Math.Abs(calibrated - _persistedCalibratedIdle) < Constants.IdleCalibrationSaveDeltaW) return;
+
+        var now = Environment.TickCount64;
+        if (_lastCalibrationSaveTick != 0
+            && now - _lastCalibrationSaveTick < Constants.IdleCalibrationSaveIntervalS * 1000L) return;
+
+        _persistedCalibratedIdle = calibrated;
+        _lastCalibrationSaveTick = now;
+        EventBus.Publish(EventType.ConfigChanged);
     }
 
     private void ChangeIdleWatts(double watts, string text)
@@ -256,11 +314,12 @@ public class PowerLabel : LabelBase
 
     private string RaplStatusText => _monitor?.RaplStatus ?? "初始化中";
 
+    /// <summary>显示真正参与估算的底噪及其来源（手动 / 放电校准 / 机型默认）。</summary>
     private string IdleWattsText => _monitor is null
         ? "初始化中"
-        : _idleWattsOverride > 0
-            ? $"{_idleWattsOverride:0.#} W（手动）"
-            : $"自动（当前 {_monitor.IdleWatts:0.#} W）";
+        : _monitor.AutoIdle
+            ? $"自动（当前 {_monitor.EffectiveIdleWatts:0.#} W，{_monitor.IdleWattsSource}）"
+            : $"{_monitor.EffectiveIdleWatts:0.#} W（{_monitor.IdleWattsSource}）";
 
     private void AddIdleWattsMenuWpf(MenuItem parent)
     {
@@ -343,9 +402,22 @@ public class PowerLabel : LabelBase
     private static string FormatPower(PowerSample sample)
         => AppIcons.Power + (sample.IsEstimated ? "≈" : "") + $"{sample.Watts:F1} W";
 
-    private static string DescribeSource(PowerSample? sample)
-        => sample is null ? "初始化中"
-            : sample.IsEstimated ? "估算（底噪 + CPU）" : "实测（电池放电功率）";
+    /// <summary>
+    /// 标签显示用：总功率后以括号附加底噪，如 “💡≈ 12.3 W (10 W)”。
+    /// 全 ASCII，避免中文字形在 emoji 优先的字体链里渲染异常。
+    /// </summary>
+    private static string FormatPowerWithIdle(PowerSample sample, double idleWatts)
+        => FormatPower(sample) + $" ({idleWatts:0.#} W)";
+
+    private string DescribeSource(PowerSample? sample)
+    {
+        if (sample is null) return "初始化中";
+        if (!sample.IsEstimated) return "实测（电池放电功率）";
+
+        return _monitor is null
+            ? "估算（底噪 + CPU）"
+            : $"估算（底噪 {_monitor.EffectiveIdleWatts:0.#} W/{_monitor.IdleWattsSource} + CPU）";
+    }
 
     private static string FormatPkg(PowerSample? sample)
         => sample?.PkgWatts is { } pkg ? $"{pkg:F1} W（RAPL 实测）" : "不可用（已回退估算）";
