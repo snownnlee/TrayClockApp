@@ -81,6 +81,27 @@ public static class Constants
     public const int IdleCalibrationWindowS = 60;
 
     /// <summary>
+    /// 功耗 &gt;&gt;&gt; 底噪设置：校准样本的相邻帧功率跳变阈值（W）。
+    /// 整机功率或 CPU 包功耗相对上一帧跳变超过该值（负载切换瞬间）时，该帧不并入窗口统计，
+    /// 避免 EMA 滞后与负载突变叠加产生失真的 baseline 样本。
+    /// </summary>
+    public const double IdleCalibrationMaxStepW = 3.0;
+
+    /// <summary>
+    /// 功耗 &gt;&gt;&gt; 底噪设置：校准样本允许的最大 CPU 负载（0~100）。
+    /// 底噪（整机 − CPU 包）会随 CPU 功率上升而升高（RAPL 不含供电/VRM 损耗），
+    /// 因此只采低负载样本，避免窗口均值被高负载期拉高、进而与“底噪 + CPU 部分”的估算模型冲突。
+    /// </summary>
+    public const int IdleCalibrationMaxCpuLoadPct = 20;
+
+    /// <summary>
+    /// 功耗 &gt;&gt;&gt; 底噪设置：校准样本的稳态门槛（连续满足条件的帧数，约 1 帧/秒）。
+    /// 电池放电功率上报有 1~3 秒滞后：负载刚回落时 raw 仍偏高而 CPU 包已降，
+    /// 需连续稳定若干帧后再采样，避免把过渡期的假高 baseline 计入窗口。
+    /// </summary>
+    public const int IdleCalibrationSettleFrames = 5;
+
+    /// <summary>
     /// 功耗 &gt;&gt;&gt; 底噪设置：校准值节流保存的变动阈值（W）。
     /// 窗口均值相对上次落盘值变化超过该阈值、且已超过下面的间隔时间，才会写一次配置。
     /// </summary>

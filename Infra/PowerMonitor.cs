@@ -324,6 +324,15 @@ internal sealed partial class PowerMonitor : IDisposable
     private double _calibratedIdle = -1; // 放电校准（窗口均值）的底噪（-1 = 未校准；手动锁定期间保持不变）
     private double _dischargeEma = -1; // 电池放电功率 EMA（-1 = 无数据/插电中）
 
+    /// <summary>上一帧的原始放电功率（W，-1 = 本会话尚无参照），用于突变判定。</summary>
+    private double _lastRawWatts = -1;
+
+    /// <summary>上一帧的 CPU 包功耗（W，-1 = 本会话尚无参照），用于突变判定。</summary>
+    private double _lastPkgWatts = -1;
+
+    /// <summary>连续满足全部采样条件的帧数，用于稳态门槛判定。</summary>
+    private int _candidateStreak;
+
     /// <summary>校准时间窗口内的 baseline 样本（时间戳, 值），超出窗口的样本出队。</summary>
     private readonly Queue<(long Timestamp, double Baseline)> _baselineWindow = new();
 
@@ -369,16 +378,34 @@ internal sealed partial class PowerMonitor : IDisposable
         // ② 电池放电中：整机实测值 + 顺带校准底噪
         if (bat is { HasBattery: true, AcOnline: false, DischargeMw: > 0 })
         {
-            var watts = _dischargeEma > 0 ? _dischargeEma : bat.DischargeMw / 1000.0;
+            var rawWatts = bat.DischargeMw / 1000.0; // 原始瞬时功率：校准配对用它，避免 EMA 的 10 秒滞后
+            var watts = _dischargeEma > 0 ? _dischargeEma : rawWatts; // 显示用（EMA 平滑）
 
             // 有 RAPL 实测值且处于自动模式时，用 (整机 − CPU 包) 反推底噪，并入时间窗口统计；
             // 手动锁定底噪期间跳过校准，避免手动值被悄悄覆盖
-            if (pkg is { } p && AutoIdle)
+            if (pkg is not { } p)
             {
-                var baseline = watts - p; // 非 CPU 部分 ≈ 屏幕/内存/硬盘/主板
-                if (baseline is > 1 and < 200) // 异常样本丢弃
-                    PushBaseline(baseline);
+                _candidateStreak = 0; // 读不到 CPU 包功耗时无法判断稳态，重新计数
             }
+            else
+            {
+                var baseline = rawWatts - p; // 非 CPU 部分 ≈ 屏幕/内存/硬盘/主板
+
+                if (!AutoIdle
+                    || cpu > Constants.IdleCalibrationMaxCpuLoadPct
+                    || baseline is <= 1 or >= 200
+                    || !IsSteadySample(rawWatts, p))
+                {
+                    _candidateStreak = 0;
+                }
+                else if (++_candidateStreak >= Constants.IdleCalibrationSettleFrames)
+                {
+                    // 连续稳定若干帧后才采样：电池功率上报有 1~3 秒滞后
+                    PushBaseline(baseline);
+                }
+            }
+
+            RememberSample(rawWatts, pkg);
 
             return new PowerSample
             {
@@ -431,9 +458,32 @@ internal sealed partial class PowerMonitor : IDisposable
     /// <summary>清空窗口（放电会话结束时调用），已算出的窗口均值保留在 _calibratedIdle 中。</summary>
     private void ResetBaselineWindow()
     {
-        if (_baselineWindow.Count == 0) return;
-        _baselineWindow.Clear();
-        _baselineSum = 0;
+        if (_baselineWindow.Count > 0)
+        {
+            _baselineWindow.Clear();
+            _baselineSum = 0;
+        }
+
+        // 会话结束：清掉相邻帧参照与稳态计数，避免下次放电首帧被误判
+        _lastRawWatts = -1;
+        _lastPkgWatts = -1;
+        _candidateStreak = 0;
+    }
+
+    /// <summary>相邻帧功率是否变化平缓：负载切换瞬间的帧不作为校准样本。</summary>
+    private bool IsSteadySample(double rawWatts, double pkgWatts)
+    {
+        if (_lastRawWatts < 0 || _lastPkgWatts < 0) return true; // 本会话首帧，没有参照
+
+        return Math.Abs(rawWatts - _lastRawWatts) <= Constants.IdleCalibrationMaxStepW
+               && Math.Abs(pkgWatts - _lastPkgWatts) <= Constants.IdleCalibrationMaxStepW;
+    }
+
+    /// <summary>记录本帧原始值，供下一帧做突变判定。</summary>
+    private void RememberSample(double rawWatts, double? pkgWatts)
+    {
+        _lastRawWatts = rawWatts;
+        if (pkgWatts is { } p) _lastPkgWatts = p;
     }
 
     /// <summary>CPU 总负载（GetSystemTimes 差分；kernelTime 已含 idleTime，需减去）。</summary>
