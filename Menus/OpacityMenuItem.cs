@@ -1,7 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Windows.Controls;
 using System.Windows.Forms;
-using System.Windows.Media;
 using TrayClockApp.Core;
 using TrayClockApp.Infra;
 using ContextMenu = System.Windows.Controls.ContextMenu;
@@ -113,6 +112,6 @@ public class OpacityMenuItem : MenuItemBase
     private void ChangeWindowOpacity()
     {
         var alpha = (byte)(_opacityN * 254 / 100);
-        Window!.Background = new SolidColorBrush(Color.FromArgb(alpha, 0, 0, 0));
+        Window!.SetBackgroundAlpha(alpha);
     }
 }

@@ -4,7 +4,7 @@
         Title="TrayClockApp"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="#4C000000"
+        Background="Transparent"
         Topmost="True"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
@@ -12,5 +12,19 @@
         Height="29"
         FontFamily="Segoe UI Emoji, Segoe UI Symbol, Segoe UI, Noto Emoji, Noto Sans Symbols 2, Symbola, DejaVu Sans"
         FontSize="16">
-    <StackPanel x:Name="LabelHost" Orientation="Horizontal" Background="Transparent" VerticalAlignment="Center" />
+    <!-- 底色与边框由圆角 Border 承载：窗口保持透明；样式与 alpha 由代码在运行时设置 -->
+    <Border x:Name="RootBorder" CornerRadius="12" Background="#4C000000" BorderThickness="1">
+        <Border.BorderBrush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Color="#4CFF3B30" Offset="0" />
+                <GradientStop Color="#4CFF9500" Offset="0.1667" />
+                <GradientStop Color="#4CFFD600" Offset="0.3333" />
+                <GradientStop Color="#4C34C759" Offset="0.5" />
+                <GradientStop Color="#4C00C7D9" Offset="0.6667" />
+                <GradientStop Color="#4C007AFF" Offset="0.8333" />
+                <GradientStop Color="#4CAF52DE" Offset="1" />
+            </LinearGradientBrush>
+        </Border.BorderBrush>
+        <StackPanel x:Name="LabelHost" Orientation="Horizontal" Background="Transparent" VerticalAlignment="Center" />
+    </Border>
 </Window>

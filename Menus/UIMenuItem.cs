@@ -17,7 +17,18 @@ public class UiMenuItem : MenuItemBase
     private const string PlainTextIconsKey = "plainTextIcons";
     private const string PlainTextIconsText = "纯文本图标模式";
 
+    private const string BorderModeKey = "borderMode";
+    private const string BorderHeaderText = "边框 >>> ";
+
+    private static readonly (BorderMode Mode, string Text)[] BorderModes =
+    [
+        (BorderMode.None, "无边框"),
+        (BorderMode.Normal, "普通边框"),
+        (BorderMode.Colorful, "彩色边框")
+    ];
+
     private bool _draggable = Constants.DefaultDraggable;
+    private BorderMode _borderMode = Constants.DefaultBorderMode;
 
     public override void AddUiMenuItem(ContextMenu menu)
     {
@@ -61,6 +72,21 @@ public class UiMenuItem : MenuItemBase
         plainTextItem.Click += (_, _) => SetPlainTextIcons(plainTextItem.IsChecked);
         positionMenu.Items.Add(plainTextItem);
 
+        positionMenu.Items.Add(new Separator());
+
+        var borderMenu = new MenuItem { Header = BorderHeaderText };
+        foreach (var (mode, text) in BorderModes)
+        {
+            var item = new MenuItem { Header = text, IsCheckable = true, IsChecked = mode == _borderMode };
+            item.Click += (_, _) =>
+            {
+                if (mode != _borderMode) SetBorderMode(mode, text);
+            };
+            borderMenu.Items.Add(item);
+        }
+
+        positionMenu.Items.Add(borderMenu);
+
         menu.Items.Add(positionMenu);
     }
 
@@ -101,6 +127,21 @@ public class UiMenuItem : MenuItemBase
         plainTextItem.CheckedChanged += (_, _) => SetPlainTextIcons(plainTextItem.Checked);
         positionMenu.DropDownItems.Add(plainTextItem);
 
+        positionMenu.DropDownItems.Add(new ToolStripSeparator());
+
+        var borderMenu = new ToolStripMenuItem(BorderHeaderText);
+        foreach (var (mode, text) in BorderModes)
+        {
+            var item = new ToolStripMenuItem(text) { Checked = mode == _borderMode };
+            item.Click += (_, _) =>
+            {
+                if (mode != _borderMode) SetBorderMode(mode, text);
+            };
+            borderMenu.DropDownItems.Add(item);
+        }
+
+        positionMenu.DropDownItems.Add(borderMenu);
+
         menu.Items.Add(positionMenu);
     }
 
@@ -112,6 +153,13 @@ public class UiMenuItem : MenuItemBase
 
         if (config[PlainTextIconsKey] is JsonValue plainValue && plainValue.TryGetValue<bool>(out var plainText))
             AppIcons.SetPlainText(plainText);
+
+        if (config[BorderModeKey] is JsonValue borderValue && borderValue.TryGetValue<string>(out var borderText)
+            && Enum.TryParse(borderText, ignoreCase: true, out BorderMode borderMode))
+        {
+            _borderMode = borderMode;
+            Window!.SetBorderMode(borderMode);
+        }
 
         if (config[DraggableKey] is not JsonValue draggableValue || !draggableValue.TryGetValue<bool>(out var draggable)) return;
         _draggable = draggable;
@@ -125,6 +173,7 @@ public class UiMenuItem : MenuItemBase
 
         config[DraggableKey] = _draggable;
         config[PlainTextIconsKey] = AppIcons.PlainText;
+        config[BorderModeKey] = _borderMode.ToString().ToLowerInvariant();
     }
 
     private void SetPlainTextIcons(bool plainText)
@@ -134,6 +183,14 @@ public class UiMenuItem : MenuItemBase
         AppIcons.SetPlainText(plainText);
         EventBus.Publish(EventType.ConfigChanged);
         WindowUtil.ShowToast(plainText ? "已启用纯文本图标模式" : "已启用 emoji 图标模式");
+    }
+
+    private void SetBorderMode(BorderMode mode, string text)
+    {
+        _borderMode = mode;
+        Window!.SetBorderMode(mode);
+        EventBus.Publish(EventType.ConfigChanged);
+        WindowUtil.ShowToast("边框已切换为：" + text);
     }
 
     private void ToggleDraggable()

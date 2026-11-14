@@ -4,6 +4,8 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using TrayClockApp.Core;
 using TrayClockApp.Infra;
@@ -28,6 +30,9 @@ public partial class MainWindow
     private Point _dragStart;
     private bool _draggable = Constants.DefaultDraggable;
     private bool _dragged;
+
+    private BorderMode _borderMode = Constants.DefaultBorderMode;
+    private byte _backgroundAlpha = 0x7F; // 底色 alpha，由不透明度菜单设置（默认 50%）
     private readonly List<IMenuItem> _menuItems;
     private readonly BrightnessBreathing _brightness;
     private readonly ColorBreathing _color;
@@ -64,6 +69,90 @@ public partial class MainWindow
     public void SetDraggable(bool draggable)
     {
         _draggable = draggable;
+    }
+
+    /// <summary>边框色环（红 → 橙 → 黄 → 绿 → 青 → 蓝 → 紫 → 粉），首尾相近以便无缝循环。</summary>
+    private static readonly Color[] BorderRainbow =
+    [
+        Color.FromRgb(0xFF, 0x3B, 0x30),
+        Color.FromRgb(0xFF, 0x95, 0x00),
+        Color.FromRgb(0xFF, 0xD6, 0x00),
+        Color.FromRgb(0x34, 0xC7, 0x59),
+        Color.FromRgb(0x00, 0xC7, 0xD9),
+        Color.FromRgb(0x00, 0x7A, 0xFF),
+        Color.FromRgb(0xAF, 0x52, 0xDE),
+        Color.FromRgb(0xFF, 0x2D, 0x95)
+    ];
+
+    private const double BorderFlowSeconds = 6; // 色环走完一圈的时长
+    private const int BorderFlowFrameRate = 30; // 细线不需要 60fps，降帧省渲染
+
+    /// <summary>设置底色与边框的不透明度（0~255，两者共用）。</summary>
+    public void SetBackgroundAlpha(byte alpha)
+    {
+        _backgroundAlpha = alpha;
+        RootBorder.Background = new SolidColorBrush(Color.FromArgb(alpha, 0, 0, 0));
+        ApplyBorderStyle();
+    }
+
+    /// <summary>切换边框样式。</summary>
+    public void SetBorderMode(BorderMode mode)
+    {
+        _borderMode = mode;
+        ApplyBorderStyle();
+    }
+
+    /// <summary>按当前样式与 alpha 重建边框。</summary>
+    private void ApplyBorderStyle()
+    {
+        switch (_borderMode)
+        {
+            case BorderMode.None:
+                // 透明画刷占位，保证三种模式尺寸一致
+                RootBorder.BorderThickness = new Thickness(1);
+                RootBorder.BorderBrush = Brushes.Transparent;
+                break;
+
+            case BorderMode.Normal:
+                RootBorder.BorderThickness = new Thickness(1);
+                RootBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(_backgroundAlpha, 0xFF, 0xFF, 0xFF));
+                break;
+
+            case BorderMode.Colorful:
+            default:
+                RootBorder.BorderThickness = new Thickness(1);
+                RootBorder.BorderBrush = CreateFlowingRainbowBrush(_backgroundAlpha);
+                break;
+        }
+    }
+
+    /// <summary>铺两个色环并横向平移一个色环的宽度，循环处图案重合、无接缝。</summary>
+    private static LinearGradientBrush CreateFlowingRainbowBrush(byte alpha)
+    {
+        const int cycles = 2;
+
+        var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0) };
+        var steps = BorderRainbow.Length * cycles;
+        for (var i = 0; i <= steps; i++)
+        {
+            var color = BorderRainbow[i % BorderRainbow.Length];
+            brush.GradientStops.Add(new GradientStop(
+                Color.FromArgb(alpha, color.R, color.G, color.B),
+                i / (double)steps));
+        }
+
+        var flow = new TranslateTransform();
+        brush.RelativeTransform = flow;
+
+        var animation = new DoubleAnimation(0, -1.0 / cycles, TimeSpan.FromSeconds(BorderFlowSeconds))
+        {
+            RepeatBehavior = RepeatBehavior.Forever
+        };
+        Timeline.SetDesiredFrameRate(animation, BorderFlowFrameRate);
+
+        flow.BeginAnimation(TranslateTransform.XProperty, animation);
+
+        return brush;
     }
 
     public void SetPositionFromConfig(double x, double y)

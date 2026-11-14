@@ -35,6 +35,9 @@ public static class Constants
     /// <summary>界面 &gt;&gt;&gt; 纯文本图标模式：默认图标模式（false 用 emoji；系统缺少 emoji 字体时会自动回退为纯文本）。配置键 plainTextIcons。</summary>
     public const bool DefaultPlainTextIcons = false;
 
+    /// <summary>界面 &gt;&gt;&gt; 边框：默认边框样式。配置键 borderMode。</summary>
+    public const BorderMode DefaultBorderMode = BorderMode.Colorful;
+
     // ---- 防烧屏 &gt;&gt;&gt; 缓变亮度（BrightnessMenuItem）----
 
     /// <summary>缓变亮度：默认是否启用。配置键 antiBurnIn。</summary>
