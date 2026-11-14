@@ -14,6 +14,7 @@
       - GitHub Release：name 与 body 均为 vX.Y.Z，附件 TrayClockApp-vX.Y.Z.exe
       - Gitee Release：name 与 body 均为 vX.Y.Z，不传附件
       - 构建参数：与 publish.bat 完全一致（单文件、自包含、压缩）
+      - SDK：所需主版本由 csproj 的 <TargetFramework> 推导（与 publish.bat 同口径）
 
 .PARAMETER DryRun
     只执行到"校验产物"为止：不做发布确认，不产生任何推送或远端写操作。
@@ -259,13 +260,49 @@ function ConvertTo-SemanticVersion {
     try { return [version]$text } catch { return $null }
 }
 
-function Find-DotNet10 {
+<#
+    所需 SDK 主版本以 csproj 的 <TargetFramework> 为唯一来源（与 publish.bat 同口径），
+    换框架（net8 -> net9/10）时脚本无需再改。
+#>
+function Get-TfmMajorVersion {
+    $node = Select-Xml -Path $CsprojPath -XPath '//TargetFramework' | Select-Object -First 1
+    if (-not $node) {
+        $script:LastCommand = ''
+        $script:LastOutput  = ('{0} 中找不到 <TargetFramework> 节点' -f (Split-Path $CsprojPath -Leaf))
+        $script:LastExit    = -1
+        throw '无法确定目标框架主版本'
+    }
+
+    $tfm = $node.Node.InnerText.Trim()
+    $match = [regex]::Match($tfm, '^net(?<major>\d+)\.')
+    if (-not $match.Success) {
+        $script:LastCommand = ''
+        $script:LastOutput  = ('TargetFramework = {0}' -f $tfm)
+        $script:LastExit    = -1
+        throw ('无法从 TargetFramework {0} 推导主版本（期望形如 net8.0-windows）' -f $tfm)
+    }
+
+    return [pscustomobject]@{ Tfm = $tfm; Major = $match.Groups['major'].Value }
+}
+
+<#
+    依次探测用户级、机器级与 PATH，逐个校验 --list-sdks 是否含所需主版本，
+    避免命中只有运行时或版本不符的安装后在构建阶段才报错。
+#>
+function Find-DotNetSdk {
+    param([string]$Major)
+
     $candidates = @(
         (Join-Path $env:LOCALAPPDATA 'Microsoft\dotnet\dotnet.exe'),
         (Join-Path $env:LOCALAPPDATA 'dotnet\dotnet.exe'),
         (Join-Path $env:ProgramFiles 'dotnet\dotnet.exe')
     )
 
+    $onPath = Get-Command 'dotnet' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($onPath) { $candidates += $onPath.Source }
+    $candidates = @($candidates | Where-Object { $_ } | Select-Object -Unique)
+
+    $pattern = '(?m)^\s*' + [regex]::Escape($Major) + '\.\d'
     $rejected = New-Object System.Collections.ArrayList
     foreach ($candidate in $candidates) {
         if (-not (Test-Path -LiteralPath $candidate)) { continue }
@@ -274,17 +311,17 @@ function Find-DotNet10 {
         try { $sdks = & $candidate --list-sdks 2>$null | Out-String } catch { $sdks = '' }
         finally { $ErrorActionPreference = $previous }
 
-        if ($sdks -match '(?m)^\s*10\.\d') {
+        if ($sdks -match $pattern) {
             return [pscustomobject]@{ Path = $candidate; Sdks = ($sdks.Trim() -replace "`r?`n", '; ') }
         }
         $null = $rejected.Add(($candidate + ' -> ' + ($sdks.Trim() -replace "`r?`n", '; ')))
     }
 
-    $detail = '未找到任何带 .NET 10 SDK 的 dotnet。已检查：' + "`n" + (($candidates + $rejected) -join "`n")
+    $detail = ('未找到任何带 .NET {0} SDK 的 dotnet。已检查：' -f $Major) + "`n" + (($candidates + $rejected) -join "`n")
     $script:LastCommand = ''
     $script:LastOutput  = $detail
     $script:LastExit    = -1
-    throw '未找到 .NET 10 SDK'
+    throw ('未找到 .NET {0} SDK' -f $Major)
 }
 
 function Exit-Failure {
@@ -509,9 +546,10 @@ try {
     Assert-True ([string]::IsNullOrWhiteSpace($remoteTag2)) ('Gitee 远端已存在标签 {0}' -f $tag) $remoteTag2
     Complete-Step '不存在'
 
-    Step '定位 .NET 10 SDK'
-    $dotnet = Find-DotNet10
-    Complete-Step $dotnet.Path
+    Step '定位所需 .NET SDK'
+    $tfmInfo = Get-TfmMajorVersion
+    $dotnet = Find-DotNetSdk $tfmInfo.Major
+    Complete-Step ('{0} · 目标框架 {1} · SDK {2}.x' -f $dotnet.Path, $tfmInfo.Tfm, $tfmInfo.Major)
 
     # ---- 阶段 1：构建打包 -------------------------------------------------
 

@@ -15,7 +15,7 @@ public class NetSpeedLabel : LabelBase
     private static string InitSpeed => AppIcons.Network + "--- ↑  --- ↓";
     private const string SelectedInterface = "selectedInterface";
 
-    private readonly Lock _speedLock = new();
+    private readonly object _speedLock = new();
 
     private string _cachedSpeed = InitSpeed;
     private long _currentDownload;

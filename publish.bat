@@ -18,11 +18,11 @@ if not defined APP_VERSION (
 )
 echo 发布版本: %APP_VERSION%
 
-rem ---- 从 csproj 的 TargetFramework 节点推导所需 .NET 主版本（net10.0-windows 推导出 10） ----
+rem ---- 从 csproj 的 TargetFramework 节点推导所需 .NET 主版本（net8.0-windows 推导出 8） ----
 set "DOTNET_MAJOR=10"
 set "APP_TFM="
 for /f "tokens=3 delims=<>" %%t in ('findstr /i /c:"<TargetFramework>" TrayClockApp.csproj') do set "APP_TFM=%%t"
-rem 只接受形如 net10 的取值；格式变化时回退默认主版本，避免给出错误版本号
+rem 只接受形如 net8 的取值；格式变化时回退默认主版本，避免给出错误版本号
 echo %APP_TFM%| findstr /r /c:"^net[0-9]" >nul || set "APP_TFM="
 if not defined APP_TFM goto tfm_ready
 set "TFM_REST=%APP_TFM:~3%"

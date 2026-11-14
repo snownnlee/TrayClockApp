@@ -76,7 +76,7 @@ internal static partial class BatteryIo
     private static partial void SetupDiDestroyDeviceInfoList(IntPtr deviceInfoSet);
 
     // ---- 缓存与复用（PathsLock 串行保护；电池热插拔时 refresh 重建） ----
-    private static readonly Lock PathsLock = new();
+    private static readonly object PathsLock = new();
     private static readonly List<string> CachedPaths = []; // 设备接口路径缓存
     private static readonly Dictionary<string, BatteryInfo> InfoPool = []; // 按路径复用的电池信息对象池
 
