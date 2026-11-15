@@ -81,9 +81,9 @@ public class PowerLabel : LabelBase
         Text.Text = InitPower;
         Text.Foreground = Brushes.Yellow;
 
-        // 宽度按“💡≈ 999.9 W (999 W)”并兼顾纯文本图标模式（“[P] ≈ 999.9 W (999 W)”）估算，
+        // 宽度按“💡≈ 999.9 W (~999 W)”并兼顾纯文本图标模式（“[P] ≈ 999.9 W (~999 W)”）估算，
         // 固定宽度可避免数字位数变化时整条悬浮条抖动，同时留足左右边距不贴边
-        Text.Width = 175;
+        Text.Width = 185;
     }
 
     public override void Update()
@@ -403,11 +403,12 @@ public class PowerLabel : LabelBase
         => AppIcons.Power + (sample.IsEstimated ? "≈" : "") + $"{sample.Watts:F1} W";
 
     /// <summary>
-    /// 标签显示用：总功率后以括号附加底噪，如 “💡≈ 12.3 W (10 W)”。
+    /// 标签显示用：总功耗 + 括号内附加底噪，底噪数值前加 ~ 标记，如 “💡≈ 12.3 W (~7.6 W)”。
+    /// 底噪只是估算模型里的参数，与实测总功耗没有相加关系，标记出来避免被当成“总功耗的一部分”。
     /// 全 ASCII，避免中文字形在 emoji 优先的字体链里渲染异常。
     /// </summary>
     private static string FormatPowerWithIdle(PowerSample sample, double idleWatts)
-        => FormatPower(sample) + $" ({idleWatts:0.#} W)";
+        => FormatPower(sample) + $" (~{idleWatts:0.#} W)";
 
     private string DescribeSource(PowerSample? sample)
     {

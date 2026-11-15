@@ -233,10 +233,13 @@ internal sealed class RaplReader : IDisposable
             _lastEnergy = cur;
             _lastTimestamp = now;
 
-            // 运行期兜底：连续多次 0 增量说明权限/驱动失效，自动停用 RAPL 并降级
+            // 运行期兜底：连续多次 0 增量说明权限/驱动失效，自动停用 RAPL 并降级。
+            // 注意：单次 0 增量也不能当作“实测 0 W”返回——上层会用 (整机放电功率 − CPU 包功耗)
+            // 校准底噪，若把 0 W 当成有效读数，整机功率就会整块被误算成底噪，
+            // 因此零增量一律返回 null（= 本帧没有实测值，上层回退估算）。
             if (delta == 0)
             {
-                if (++_zeroStreak < 10) return delta * _energyUnitUj / seconds / 1e6; // → W
+                if (++_zeroStreak < 10) return null;
                 if (!IsAdmin)
                 {
                     State = RaplState.NotAdmin;
@@ -253,7 +256,8 @@ internal sealed class RaplReader : IDisposable
 
             _zeroStreak = 0;
 
-            return delta * _energyUnitUj / seconds / 1e6; // → W
+            var watts = delta * _energyUnitUj / seconds / 1e6; // → W
+            return watts > 0 ? watts : null; // 单位寄存器异常等极端情况下同样不返回 0
         }
         catch
         {
@@ -360,7 +364,11 @@ internal sealed partial class PowerMonitor : IDisposable
     {
         var cpu = ReadCpuLoad();
         var bat = ReadBatteryState();
+
+        // pkg <= 0 一律按“无实测值”处理：底噪校准用的是 (整机 − CPU 包)，
+        // 一个伪 0 W 会把整机放电功率整体算进底噪，故在此统一兜底，防止上游读数异常。
         var pkg = _rapl.ReadPkgWatts();
+        if (pkg is <= 0) pkg = null;
 
         // ① 电池放电功率 EMA 平滑 + 尖峰剔除（供电切换瞬间计量值会突跳）
         if (bat is { HasBattery: true, AcOnline: false })
