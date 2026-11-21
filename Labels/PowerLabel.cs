@@ -72,6 +72,9 @@ public class PowerLabel : LabelBase
     private bool _lastShownEstimated;
     private bool _lastShownPlainText;
 
+    /// <summary>上一次显示的底噪是否来自手动设置（决定底噪前缀用 • 还是 ~）。</summary>
+    private bool _lastShownManualIdle;
+
     /// <summary>采样重入保护：Timer 不保证回调不重叠，而 PowerMonitor.Sample() 必须串行调用。</summary>
     private int _sampling;
 
@@ -168,18 +171,20 @@ public class PowerLabel : LabelBase
             MaybePersistCalibratedIdle();
 
             var idleWatts = _monitor.EffectiveIdleWatts;
+            var manualIdle = _monitor.ManualIdleWatts > 0;
 
             // 功率、底噪、来源与图标模式都未变化时复用上一秒的显示文本，避免重复格式化与无谓的 UI 赋值
             // ReSharper disable once CompareOfFloatsByEqualityOperator
             if (sample.Watts == _lastShownWatts && sample.IsEstimated == _lastShownEstimated
-                && AppIcons.PlainText == _lastShownPlainText
+                && AppIcons.PlainText == _lastShownPlainText && manualIdle == _lastShownManualIdle
                 && Math.Abs(idleWatts - _lastShownIdleWatts) < 0.05) return;
 
             _lastShownWatts = sample.Watts;
             _lastShownEstimated = sample.IsEstimated;
             _lastShownPlainText = AppIcons.PlainText;
+            _lastShownManualIdle = manualIdle;
             _lastShownIdleWatts = idleWatts;
-            _cachedPower = FormatPowerWithIdle(sample, idleWatts);
+            _cachedPower = FormatPowerWithIdle(sample, idleWatts, manualIdle);
         }
         catch (Exception ex)
         {
@@ -403,12 +408,13 @@ public class PowerLabel : LabelBase
         => AppIcons.Power + (sample.IsEstimated ? "≈" : "") + $"{sample.Watts:F1} W";
 
     /// <summary>
-    /// 标签显示用：总功耗 + 括号内附加底噪，底噪数值前加 ~ 标记，如 “💡≈ 12.3 W (~7.6 W)”。
+    /// 标签显示用：总功耗 + 括号内附加底噪，底噪数值前加标记，如 “💡≈ 12.3 W (~7.6 W)”。
+    /// 自动底噪为机型默认/放电校准的估测值，用 ~ 表示；手动底噪是用户指定的确定值，用 • 表示（更醒目）。
     /// 底噪只是估算模型里的参数，与实测总功耗没有相加关系，标记出来避免被当成“总功耗的一部分”。
-    /// 全 ASCII，避免中文字形在 emoji 优先的字体链里渲染异常。
+    /// 只用 ASCII 与 U+2022（•），二者在 emoji 优先的字体链里都有字形，避免中文字形渲染异常。
     /// </summary>
-    private static string FormatPowerWithIdle(PowerSample sample, double idleWatts)
-        => FormatPower(sample) + $" (~{idleWatts:0.#} W)";
+    private static string FormatPowerWithIdle(PowerSample sample, double idleWatts, bool manualIdle)
+        => FormatPower(sample) + (manualIdle ? " (•" : " (~") + $"{idleWatts:0.#} W)";
 
     private string DescribeSource(PowerSample? sample)
     {
